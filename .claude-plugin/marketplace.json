@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "amnesia-dev",
+  "description": "Local development marketplace for the amnesia plugin",
+  "owner": { "name": "Andrew", "email": "claude@cryptoandcoffee.com" },
+  "plugins": [
+    {
+      "name": "amnesia",
+      "source": "./plugins/amnesia",
+      "description": "Context continuity across Claude Code compaction. Captures structured handoff before each compact event and re-injects it after, so the agent resumes without losing the working state.",
+      "category": "productivity",
+      "tags": ["context", "compaction", "memory", "continuity", "hooks"],
+      "homepage": "https://github.com/cryptoandcoffee/amnesia"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+# amnesia plugin-development repo
+
+# Editor / OS
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
+
+# Local-only test data the plugin produces in its CLAUDE_PLUGIN_DATA dir;
+# never committed.
+/scratch/
+/tmp/
+*.log
+
+# Python helper bytecode
+__pycache__/
+*.pyc

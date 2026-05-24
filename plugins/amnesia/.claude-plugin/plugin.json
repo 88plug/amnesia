@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "amnesia",
+  "displayName": "Amnesia",
+  "version": "0.1.0",
+  "description": "Maintains perfect-enough context across Claude Code compaction. Three-layer capture (mechanical + Haiku-enriched + main-model refined) plus a recovery-protocol skill that teaches the agent how to use the handoff after every compact, resume, and fresh session.",
+  "author": { "name": "Andrew", "email": "claude@cryptoandcoffee.com" },
+  "license": "MIT",
+  "keywords": ["context", "compaction", "memory", "continuity", "hooks", "claude-code", "session"]
+}
