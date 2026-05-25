@@ -101,9 +101,13 @@ fi
 # Archive a timestamped copy so we can audit drift across compacts.
 cp "$ACTIVE" "$ARCHIVE/${TS_FILE}-L1-${TRIGGER:-unknown}.md" || true
 
-# Drop the L3 marker so the very next UserPromptSubmit knows to ask the main
-# model for a refinement pass while it has full context.
+# Drop the L3 marker so the very next Stop hook (after the first post-compact
+# turn finishes) refines the handoff in the background.
 date -u +%s > "$MARKER" || true
+
+# Re-arm the preempt marker for the next cycle: clear it so the preempt
+# UserPromptSubmit hook can fire again as we approach the next compact.
+rm -f "$STATE_DIR/markers/preempt-done-this-cycle" || true
 
 amnesia::log info "L1 handoff written; trigger=$TRIGGER session=$SESSION_ID"
 exit 0

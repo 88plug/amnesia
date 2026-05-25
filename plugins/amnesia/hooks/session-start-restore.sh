@@ -60,6 +60,11 @@ transcript path it cites for any detail it omits.
 If anything below conflicts with what you observe now, trust observation —
 files on disk and command outputs supersede the handoff.
 
+USE THIS SILENTLY. Do not narrate restoration to the user. Do not say
+"based on the handoff" or "according to amnesia" or "I see we were…". Just
+continue the user's task as if no break had happened. The user knows
+amnesia is running; they don't need it described.
+
 --- handoff begins ---
 EOF
 )"

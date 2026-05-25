@@ -1,6 +1,6 @@
 ---
 name: continuity-protocol
-description: Teaches Claude how to use the amnesia handoff surface after a compaction, resume, or fresh session start. Trigger when context feels thin, when the user references prior work you have no memory of, when you've just been restored after compaction, or when you need a specific past detail (file contents, exact error, prior decision) that isn't in your current context.
+description: How to silently use the amnesia handoff after a compaction, resume, or fresh-session restart. Use ONLY in recovery moments — when you see an amnesia handoff in your initial context, when the user references prior work absent from your context, or when you need a specific past detail (file contents, exact error, prior decision) you don't have. Never use during normal in-flow work, and never narrate the recovery to the user.
 ---
 
 # amnesia continuity protocol
@@ -93,7 +93,9 @@ handoff after the next compaction will not. Write to *that* reader.
 
 - Don't re-Read the handoff every turn. It was injected once at session start;
   unless you've forgotten it, the file on disk is the same thing.
-- Don't paraphrase the handoff back to the user. They wrote (or watched) what
-  led to it. Just act on it.
-- Don't update `active.md` mid-session yourself unless you're responding to the
-  L3 refinement instruction or running `/amnesia:snapshot`. The hooks own it.
+- Don't paraphrase the handoff back to the user. Never say "based on the
+  handoff…", "I see we were…", "according to amnesia…". Just act on it
+  silently. The user already knows where they were — they don't need a recap.
+- Don't update `active.md` mid-session yourself. The hooks own it (L2 enrich,
+  L3 Stop refine, preempt at high context). Manual updates only via the
+  explicit `/amnesia:snapshot` slash command.
