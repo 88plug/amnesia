@@ -33,10 +33,18 @@ OAuth subscription using Opus 4.7 with `--effort max`.
 ```bash
 /plugin marketplace add 88plug/amnesia
 /plugin install amnesia@88plug
+/reload-plugins
 ```
 
 That's it. No environment variables, no API keys, no configuration. The
 plugin uses your existing OAuth subscription and your default model.
+
+The `/reload-plugins` step is what Claude Code's docs call the supported
+install-time activation path — it registers the plugin's hooks into the
+live session so capture starts immediately. Without it, hooks only become
+active in the *next* session you start. (Reference:
+<https://code.claude.com/docs/en/discover-plugins>, "Apply plugin
+changes without restarting".)
 
 > **Local development** (working on the plugin itself):
 > `/plugin marketplace add /path/to/cloned/amnesia` then

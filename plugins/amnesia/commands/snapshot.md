@@ -44,9 +44,19 @@ verbatim. No fluff, no preamble.
 
 ## Where to write it
 
-The handoff file lives at:
+Resolve the handoff path via the plugin's shared helper so this command writes
+to the same directory the hooks read from (the marketplace-suffixed
+`amnesia-<marketplace>/` dir under `~/.claude/plugins/data/`, not the
+unsuffixed legacy fallback):
 
-`!`printf '%s\n' "${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/amnesia}/projects/$(printf '%s' "${CLAUDE_PROJECT_DIR:-$PWD}" | sed 's/[^A-Za-z0-9]/-/g')/handoff/active.md"``
+`!`
+for c in "${CLAUDE_PLUGIN_ROOT:-}/hooks/lib/common.sh" "$HOME"/.claude/plugins/cache/*/amnesia/*/hooks/lib/common.sh "$HOME/amnesia/plugins/amnesia/hooks/lib/common.sh"; do
+  [ -f "$c" ] && { source "$c"; break; }
+done
+STATE="$(amnesia::state_dir 2>/dev/null)"
+mkdir -p "$STATE/handoff"
+printf '%s\n' "$STATE/handoff/active.md"
+``
 
 Use the `Write` tool to write the document to that exact path (overwriting any
 existing `active.md`). Then confirm to the user with the path and a one-line

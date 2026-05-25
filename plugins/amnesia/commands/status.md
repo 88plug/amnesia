@@ -1,6 +1,6 @@
 ---
 description: Show amnesia's current state for this project — last handoff, working-state size, recent compaction events, hook health.
-allowed-tools: Bash(ls:*), Bash(stat:*), Bash(wc:*), Bash(tail:*), Bash(head:*), Bash(grep:*), Bash(jq:*), Bash(printf:*), Bash(date:*)
+allowed-tools: Bash(ls:*), Bash(stat:*), Bash(wc:*), Bash(tail:*), Bash(head:*), Bash(grep:*), Bash(jq:*), Bash(printf:*), Bash(date:*), Bash(bash:*), Bash(dirname:*), Bash(source:*)
 ---
 
 # amnesia status
@@ -13,8 +13,13 @@ this project. Be concise — this is a diagnostic, not a narrative.
 Run these commands in order and synthesize a short status report:
 
 `!`
-SLUG=$(printf '%s' "${CLAUDE_PROJECT_DIR:-$PWD}" | sed 's/[^A-Za-z0-9]/-/g')
-STATE="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/amnesia}/projects/$SLUG"
+# Resolve state dir via the plugin's shared helper so slash commands and
+# hooks agree on the path (CLAUDE_PLUGIN_DATA is set in hook context but
+# NOT in slash-command Bash — common.sh's resolver handles both).
+for c in "${CLAUDE_PLUGIN_ROOT:-}/hooks/lib/common.sh" "$HOME"/.claude/plugins/cache/*/amnesia/*/hooks/lib/common.sh "$HOME/amnesia/plugins/amnesia/hooks/lib/common.sh"; do
+  [ -f "$c" ] && { source "$c"; break; }
+done
+STATE="$(amnesia::state_dir 2>/dev/null || printf '%s' "$HOME/.claude/plugins/data/amnesia/projects/unknown")"
 echo "=== amnesia state dir ==="
 echo "$STATE"
 echo
