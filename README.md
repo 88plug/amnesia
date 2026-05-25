@@ -31,13 +31,17 @@ OAuth subscription using Opus 4.7 with `--effort max`.
 ## Quick install
 
 ```bash
-# From this repo root:
-/plugin marketplace add /home/andrew/amnesia
-/plugin install amnesia@amnesia-dev
+/plugin marketplace add 88plug/amnesia
+/plugin install amnesia@88plug
 ```
 
 That's it. No environment variables, no API keys, no configuration. The
 plugin uses your existing OAuth subscription and your default model.
+
+> **Local development** (working on the plugin itself):
+> `/plugin marketplace add /path/to/cloned/amnesia` then
+> `/plugin install amnesia@88plug` — same marketplace name; the source is
+> resolved from the local clone instead of GitHub.
 
 ## How it works
 
@@ -122,8 +126,8 @@ logs/
 
 `${CLAUDE_PLUGIN_DATA}` resolves at runtime to
 `~/.claude/plugins/data/amnesia-<marketplace>/` — for example,
-`~/.claude/plugins/data/amnesia-amnesia-dev/` when installed from this repo's
-local marketplace. (Claude Code uses `<plugin-name>-<marketplace-name>`,
+`~/.claude/plugins/data/amnesia-88plug/` when installed from the public
+88plug marketplace. (Claude Code uses `<plugin-name>-<marketplace-name>`,
 which lets the same plugin from different marketplaces coexist.)
 
 `<slug>` is your `CLAUDE_PROJECT_DIR` with non-alphanumerics replaced by `-`,
