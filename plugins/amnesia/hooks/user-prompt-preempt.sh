@@ -77,7 +77,8 @@ context. Produce a preemptive handoff that captures the current working
 state BEFORE the lossy summarization fires. Same format as a normal handoff.
 ≤ 4000 chars. Be specific. Never invent — only use facts from the input.
 
-# amnesia handoff (preemptive)
+Output MUST begin at H2 (\`## Working theory\`). Do NOT emit a top-level H1 —
+the caller wraps your output with its own \`# amnesia handoff (preemptive, …)\`.
 
 ## Working theory
 …
@@ -117,8 +118,8 @@ if ! printf '%s' "$PROMPT" | amnesia::summarize 180 "preempt" > "$TMP_OUT"; then
   exit 0
 fi
 
-if [ ! -s "$TMP_OUT" ] || ! head -c 200 "$TMP_OUT" | grep -q '^#'; then
-  amnesia::log warn "preempt output malformed; previous handoff remains"
+if [ ! -s "$TMP_OUT" ] || ! head -c 200 "$TMP_OUT" | grep -q '^## Working theory'; then
+  amnesia::log warn "preempt output malformed (missing '## Working theory' anchor); previous handoff remains"
   exit 0
 fi
 

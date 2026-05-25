@@ -265,7 +265,41 @@ ground truth.** No other tool we surveyed does all three.
 - Anthropic engineering blog "Effective context engineering for AI agents"
 - Anthropic engineering blog "Effective harnesses for long-running agents"
 
-## 7. Open questions for v0.3+
+## 7. Observed harness behavior (2.1.150)
+
+These are quirks of Claude Code 2.1.150 we discovered while testing amnesia.
+They are not bugs in amnesia, but they shape how the hooks are written.
+
+### 7.1. SessionStart after manual `/compact` reports `source=startup`
+
+Empirically verified 2026-05-25: when the user manually invokes `/compact`,
+the harness fires `SessionStart` with `source=startup`, **not** `source=compact`.
+We initially expected `compact`. The matcher `compact|resume|startup` in
+`hooks.json` catches all three regardless, so injection still works — but the
+header we emit ("source=startup") doesn't tell you the cycle actually came
+from a compact. If you need to discriminate, check whether the L1 archive
+has a fresh entry from the last ~5 s.
+
+This means the matcher list **must** include `startup`, not just `compact`.
+Dropping `startup` would silently break post-compact restoration.
+
+### 7.2. PostCompact `trigger` field
+
+Manual `/compact` produces `trigger: "manual"` in the PostCompact hook input;
+auto-compact (at the threshold) produces `trigger: "auto"`. The L1/L2/L3
+archives include this in the filename so you can tell at a glance which
+compactions were user-initiated vs harness-initiated.
+
+### 7.3. Duplicate H1 if the summarizer emits its own (fixed in v0.2.1)
+
+`wrap_handoff` emits an outer H1 (`# amnesia handoff (L2 enriched, …)`).
+If the summarizer prompt template also includes an H1 in the body, the
+output has two H1s. v0.2.0 had this bug — the inline templates each opened
+with `# amnesia handoff (…)`. Fix in v0.2.1: templates start at H2
+(`## Working theory`), system prompt explicitly forbids H1, sanity check
+asserts the H2 anchor instead of just any heading.
+
+## 8. Open questions for v0.3+
 
 1. **Empirically measure L3-Stop quality vs L1+L2.** v0.1.0's L3 used the main
    model with full context; v0.2.0's L3 uses an isolated `claude -p`. Compare

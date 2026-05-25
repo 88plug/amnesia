@@ -41,7 +41,8 @@ total. Be specific. Quote file paths, error messages, and recent decisions
 verbatim. If a section has nothing to report from the input, write
 "_(nothing to report)_" — never invent.
 
-# amnesia handoff (L2 enriched)
+Output MUST begin at H2 (\`## Working theory\`). Do NOT emit a top-level H1 —
+the caller wraps your output with its own \`# amnesia handoff (L2 enriched, …)\`.
 
 ## Working theory
 One paragraph: what was the agent trying to accomplish at the moment of
@@ -84,9 +85,11 @@ if ! printf '%s' "$PROMPT" | amnesia::summarize 180 "L2-enrich" > "$TMP_OUT"; th
   exit 0
 fi
 
-# Sanity check: output should be markdown starting with a header.
-if [ ! -s "$TMP_OUT" ] || ! head -c 200 "$TMP_OUT" | grep -q '^#'; then
-  amnesia::log warn "L2 output looked malformed; L1 handoff remains in place"
+# Sanity check: output must begin at the expected H2 anchor. This catches
+# both empty output and the v0.2.0 bug where the model emitted its own H1
+# (producing a duplicate header after wrap_handoff added the outer one).
+if [ ! -s "$TMP_OUT" ] || ! head -c 200 "$TMP_OUT" | grep -q '^## Working theory'; then
+  amnesia::log warn "L2 output looked malformed (missing '## Working theory' anchor); L1 handoff remains in place"
   exit 0
 fi
 

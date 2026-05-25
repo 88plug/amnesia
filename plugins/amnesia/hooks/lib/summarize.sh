@@ -47,7 +47,7 @@ amnesia::summarize() {
       claude -p \
         --effort "$effort" \
         --no-session-persistence \
-        --append-system-prompt "You summarize ONLY what is literally in the user message. Never reference any other project, codebase, or context. Never use information from skills, plugins, MCPs, or any CLAUDE.md that may be loaded — those are NOT sources of truth for this task. If the user message does not state a fact, do not write it. Output the requested markdown only — no preface, no postscript, no acknowledgement of these instructions." \
+        --append-system-prompt "You summarize ONLY what is literally in the user message. Never reference any other project, codebase, or context. Never use information from skills, plugins, MCPs, or any CLAUDE.md that may be loaded — those are NOT sources of truth for this task. If the user message does not state a fact, do not write it. Output the requested markdown only — no preface, no postscript, no acknowledgement of these instructions. Do NOT emit any top-level H1 (\`#\`) heading; the caller wraps your output with its own H1. Start your output at H2 (\`##\`) exactly as the template specifies." \
         --output-format text \
         2>>"$state_dir/logs/amnesia.log"; then
     amnesia::log warn "${label}: claude -p failed or timed out (effort=${effort})"

@@ -66,7 +66,8 @@ Output the FULL refined handoff in the same structure as the current one,
 keep it. If the just-finished turn revealed a better "Concrete next action,"
 update it. Never invent — only use facts from the input.
 
-# amnesia handoff (L3 refined)
+Output MUST begin at H2 (\`## Working theory\`). Do NOT emit a top-level H1 —
+the caller wraps your output with its own \`# amnesia handoff (L3 refined, …)\`.
 
 ## Working theory
 …
@@ -107,8 +108,8 @@ if ! printf '%s' "$PROMPT" | amnesia::summarize 180 "L3-refine" > "$TMP_OUT"; th
   exit 0
 fi
 
-if [ ! -s "$TMP_OUT" ] || ! head -c 200 "$TMP_OUT" | grep -q '^#'; then
-  amnesia::log warn "L3 output looked malformed; existing handoff remains in place"
+if [ ! -s "$TMP_OUT" ] || ! head -c 200 "$TMP_OUT" | grep -q '^## Working theory'; then
+  amnesia::log warn "L3 output looked malformed (missing '## Working theory' anchor); existing handoff remains in place"
   exit 0
 fi
 
