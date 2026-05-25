@@ -83,78 +83,143 @@ The `additionalContext` field has **no hard byte cap** in 2.1.150
 longer enforces; amnesia stays under ~18KB anyway to be polite to the
 context budget.
 
-## 3. The architecture amnesia ships
+## 3. The architecture amnesia ships (v0.2.0)
 
 ```
                   +-----------------------+
-   PostToolUse → | working-state.jsonl   |  ← continuous, ~0 cost
+   PostToolUse → | working-state.jsonl   |  ← continuous, ~0 cost, <50ms
                   +-----------------------+
-                              |
-   compaction fires           v
-   PreCompact (skipped)
-   PostCompact → +--------------------------+
-                 | L1 mechanical bash hook  |  ← <500 ms, $0, always runs
-                 |   reads transcript tail  |
-                 |   reads working-state    |
-                 |   writes active.md       |
-                 |   drops L3 marker        |
-                 +--------------------------+
-   PostCompact → +--------------------------+
-   (async)       | L2 bash hook (async)     |  ← non-blocking; ~$0.004 warm
-                 |   shells to claude -p    |
-                 |   Haiku 4.5              |
-                 |   overwrites active.md   |
-                 +--------------------------+
-                              |
-   session resumes / next turn
-   SessionStart(compact) →  reads active.md → emits additionalContext
-   UserPromptSubmit (1st post-compact turn, consumes L3 marker) →
-                            injects "refine the handoff" instruction
-   ↓
-   Main model edits active.md (L3) with its full restored context.
+
+   UserPromptSubmit (every turn, async) →
+       +---------------------------------------+
+       | preempt: if bytes-since-last-compact  |  ← async; runs at most ONCE
+       | ≥ 2MB AND not done this cycle:        |    per compact cycle.
+       |   claude -p Opus 4.7 --effort max     |    Captures state BEFORE
+       |   (isolated; CLAUDE.md+auto-mem off)  |    compaction fires.
+       |   → active.md                         |
+       +---------------------------------------+
+
+   compaction fires
+   PreCompact (unused — shell-only, can't trigger model)
+
+   PostCompact → +-------------------------------+
+   (sync)        | L1 mechanical bash hook       |  ← <500 ms, $0, always runs
+                 |   reads transcript tail       |
+                 |   reads working-state         |
+                 |   writes active.md            |
+                 |   drops need-l3-enrichment    |
+                 |   re-arms preempt marker      |
+                 +-------------------------------+
+   PostCompact → +-------------------------------+
+   (async)       | L2 enrich bash hook (async)   |  ← non-blocking; ~45s async
+                 |   claude -p Opus --effort max |
+                 |   (isolated)                  |
+                 |   overwrites active.md        |
+                 +-------------------------------+
+
+   first Stop after compact (async, consumes need-l3-enrichment marker) →
+       +---------------------------------------+
+       | L3 refine: claude -p Opus --effort   |  ← async; runs ONCE after
+       | max (isolated), reads existing       |    the first post-compact
+       | handoff + 32KB transcript tail       |    turn finishes. Captures
+       | (including just-finished post-compact|    insight from that turn.
+       | turn) → overwrites active.md         |
+       +---------------------------------------+
+
+   session resumes / next turn →
+       SessionStart(compact|resume|startup) → cats active.md into
+                                              additionalContext
 ```
 
 Across compactions the same `active.md` is rewritten in place, with each
 generation also archived under `handoff/archive/`. The `archive/` is what you
 audit when you suspect drift: compare consecutive snapshots to see what each
-compaction added vs lost.
+layer added.
 
-### Why three layers and not one?
+### Why four layers (L1 + L2 + L3 + preempt)?
 
-| If you only had L1 (mechanical) | If you only had L2 (Haiku) | If you only had L3 (main model) |
-|---|---|---|
-| Fast and free, but no "why." Loses the conceptual thread. | ~$0.004–$0.028/compact, decent, but blocks for 6–10s if not async, and Haiku misses nuance. | Highest fidelity in theory, but ~15% miss rate (model may ignore the system reminder), and fires only on the *next* turn — first response post-compact gets no benefit. |
+| Failure mode | Layer that catches it |
+|---|---|
+| `claude -p` is unreachable or hangs | L1 ran first, sync, with no LLM — handoff exists |
+| Compact happens while you're typing the next prompt | preempt already captured pre-compact state, then L1 captures post |
+| L2's bounded 16KB tail missed something important | L3 sees a wider tail + the first post-compact turn the model just performed |
+| The first post-compact turn surfaces a new constraint | L3 captures it for the NEXT compact |
 
-The three layered together cover each other's failure modes:
-- L1 always runs in <500ms with no LLM, guaranteeing *something*.
-- L2 (async) enriches L1 with narrative in the background. If `claude -p`
-  fails for any reason, L1 stays in place.
-- L3 fires on the first post-compact turn while the main model has full
-  context — its edits prepare the handoff for the *next* compaction.
+The first session after install only gets L1 + L2 + preempt. The second gets
+L3-refined-from-first too. Quality grows monotonically.
 
-The first session after install only gets L1. The second gets L1+L2. The
-third gets L1+L2+L3-refined-from-second. Quality grows with use.
+### Why Opus 4.7 `--effort max` instead of Haiku?
+
+v0.1.0 defaulted to Haiku 4.5 based on per-token API cost analysis (~$0.028
+cold, ~$0.004 warm). **This was solving the wrong problem on a subscription
+plan**: `claude -p` on subscription uses your OAuth credentials and draws
+from plan quota, not API tokens. There's no dollar cost difference between
+Haiku and Opus on subscription — only a plan-quota cost.
+
+Verified empirically (2026-05-24, single L2 invocation on a real transcript
+tail):
+
+- Opus 4.7 `--effort max`: ~33K cache-creation + ~21K cache-read + ~3K output
+  tokens. ~$0.20 informational ($0 billed). ~45s wall-clock.
+- Quality: vastly better than Haiku for the handoff task. Faithful, specific,
+  grounded.
+
+So v0.2.0 strips the Haiku default and uses the user's main model at
+`--effort max`. Configurable via `AMNESIA_EFFORT` env var.
+
+### Why isolation matters
+
+Full `claude -p` mode loads `~/.claude/CLAUDE.md`, project `CLAUDE.md`,
+auto-memory, and any auto-triggered skills. v0.1.0's first realistic test
+produced a handoff about "intermittent SSH timeouts across the sidecar.network
+WireGuard relay fleet" — content that wasn't in the input but was in the
+user's CLAUDE.md.
+
+`--bare` would solve this cleanly but is OAuth-incompatible (`--help`:
+"Anthropic auth is strictly `ANTHROPIC_API_KEY` … OAuth and keychain are
+never read"). On subscription, `--bare` is unavailable.
+
+v0.2.0 isolates via three layers of defense:
+
+1. `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` — skip CLAUDE.md loading
+2. `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` — skip auto-memory loading
+3. `--append-system-prompt` with explicit instruction: "summarize ONLY what
+   is literally in the user message. Never reference any other project,
+   codebase, or context. If the input does not state it, do not write it."
+
+Re-tested empirically: the same input that hallucinated WireGuard content
+now produces a fully grounded handoff. Every claim traces to the input. The
+Concrete-next-action line even correctly identified the meta-question I was
+holding ("verify whether OVH references appear verbatim in the tail").
+
+### Why L3 moved from UserPromptSubmit to Stop+async
+
+v0.1.0's L3 fired on `UserPromptSubmit` — it injected a system reminder
+telling the model "before answering, refine active.md." Visibly, the user
+saw Claude pause for 5–10 s reading and editing a file before responding to
+their actual question.
+
+v0.2.0's L3 fires on `Stop` with `async: true` — after the model has already
+replied to the user. A separate `claude -p` then does the refinement in the
+background. The user sees nothing.
+
+The trade-off: instead of the main model refining the handoff (full context),
+a separate Opus call refines it from the JSONL tail. Slightly lower fidelity
+than v0.1.0's L3 in theory, but invisible and reliable instead of visible
+and adherence-dependent.
 
 ### Why `bash` hooks throughout, not `prompt`-type?
 
 Claude Code 2.1.150 supports five hook types: `bash`, `prompt` (direct
-in-binary LLM call), `agent` (subagent), `http`, `mcp_tool`. The
-`prompt`-type would in theory let L2 skip the `claude -p` shell-out — but
-the output channel for `prompt`-type hooks on observational events like
-`PostCompact` is undocumented and unexercised by any plugin in the public
-catalog. Using `bash` throughout gives us:
+in-binary LLM call), `agent` (subagent), `http`, `mcp_tool`. The `prompt`-type
+would in theory let L2 skip the `claude -p` shell-out — but the output
+channel for `prompt`-type hooks on observational events like `PostCompact`
+is undocumented and unexercised by any plugin in the public catalog. Using
+`bash` throughout gives us:
 - Confirmed working semantics (every official plugin uses `bash`).
 - Full control over the output file path and atomic writes.
 - Easy debugging (we own the I/O and can log freely).
 - Graceful degradation — if `claude -p` fails, L1's output is still on disk.
-
-The `claude --bare -p` invocation costs (when `ANTHROPIC_API_KEY` is set):
-- Cold (first call in 5min window): ~$0.028, ~4s wall
-- Warm (within 5min): ~$0.004, ~3s wall
-
-Without `ANTHROPIC_API_KEY`, full `claude -p` mode runs but pays a ~34K-token
-plugin/MCP discovery tax per cold call (~$0.04 cold, ~10s wall). The plugin
-works either way; bare mode is just a noticeable optimization.
 
 ## 4. What we chose not to build
 
@@ -200,11 +265,12 @@ ground truth.** No other tool we surveyed does all three.
 - Anthropic engineering blog "Effective context engineering for AI agents"
 - Anthropic engineering blog "Effective harnesses for long-running agents"
 
-## 7. Open questions for v0.2+
+## 7. Open questions for v0.3+
 
-1. **Empirically measure L3 adherence rate.** The model is asked via system
-   reminder to edit `active.md` before answering. How often does it actually
-   do it? Instrument and measure.
+1. **Empirically measure L3-Stop quality vs L1+L2.** v0.1.0's L3 used the main
+   model with full context; v0.2.0's L3 uses an isolated `claude -p`. Compare
+   the handoffs L3 produces vs L2 against the same transcripts and see if L3
+   is materially better than just running L2 again.
 2. **`asyncRewake` for L2 delivery.** Skip the SessionStart route entirely;
    instead, L2 exits with code 2 + a rewakeMessage like "Continuity restored.
    Read `active.md`." Wakes the model at exactly the right moment but is more
@@ -218,3 +284,11 @@ ground truth.** No other tool we surveyed does all three.
 5. **Auto-tune `AMNESIA_MAX_AGE_SECONDS`** based on how often the user
    resumes a project — short for actively-worked projects, long for
    intermittent ones.
+6. **Skill suppression in the isolated summarizer.** Even with CLAUDE.md and
+   auto-memory disabled, auto-triggered skills can still load and pollute
+   context. The system-prompt pin handles this defensively, but a clean
+   `--no-skills` flag would be better. File request upstream.
+7. **Plan-quota accounting.** A single L2/L3/preempt call burns ~33K Opus
+   tokens of plan quota. Heavy users with many compacts/day may want a
+   `AMNESIA_BUDGET_TOKENS_PER_DAY` cap that drops to lower effort levels or
+   skips enrichment once exceeded.
