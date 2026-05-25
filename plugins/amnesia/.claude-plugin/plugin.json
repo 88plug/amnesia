@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "amnesia",
   "displayName": "Amnesia",
-  "version": "0.1.0",
-  "description": "Maintains perfect-enough context across Claude Code compaction. Three-layer capture (mechanical + Haiku-enriched + main-model refined) plus a recovery-protocol skill that teaches the agent how to use the handoff after every compact, resume, and fresh session.",
+  "version": "0.2.0",
+  "description": "Seamless context continuity across Claude Code compaction. Four background layers (continuous tool-call capture, mechanical PostCompact handoff, async Opus 4.7 enrichment at --effort max, async Stop-hook refinement, and preemptive snapshot before the next compact) keep the agent's working state intact across every compaction and resume. All summarization is isolated from CLAUDE.md/auto-memory and invisible to the user.",
   "author": { "name": "Andrew", "email": "claude@cryptoandcoffee.com" },
   "license": "MIT",
   "keywords": ["context", "compaction", "memory", "continuity", "hooks", "claude-code", "session"]

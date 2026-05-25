@@ -120,8 +120,15 @@ logs/
   amnesia.log                     # debug log
 ```
 
+`${CLAUDE_PLUGIN_DATA}` resolves at runtime to
+`~/.claude/plugins/data/amnesia-<marketplace>/` — for example,
+`~/.claude/plugins/data/amnesia-amnesia-dev/` when installed from this repo's
+local marketplace. (Claude Code uses `<plugin-name>-<marketplace-name>`,
+which lets the same plugin from different marketplaces coexist.)
+
 `<slug>` is your `CLAUDE_PROJECT_DIR` with non-alphanumerics replaced by `-`,
-mirroring Claude Code's own `~/.claude/projects/<slug>/` layout.
+mirroring Claude Code's own `~/.claude/projects/<slug>/` layout. So a project
+at `/home/andrew/amnesia` lands under `…/projects/-home-andrew-amnesia/`.
 
 ## What amnesia explicitly does NOT do
 
