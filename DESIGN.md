@@ -83,11 +83,12 @@ The `additionalContext` field has **no hard byte cap** in 2.1.150
 longer enforces; amnesia stays under ~18KB anyway to be polite to the
 context budget.
 
-## 3. The architecture amnesia ships (v0.2.0)
+## 3. The architecture amnesia ships (v0.3.0)
 
 ```
                   +-----------------------+
    PostToolUse → | working-state.jsonl   |  ← continuous, ~0 cost, <50ms
+                  | (secrets redacted)    |    auto-rotates at 5000 lines
                   +-----------------------+
 
    UserPromptSubmit (every turn, async) →
@@ -100,53 +101,83 @@ context budget.
        +---------------------------------------+
 
    compaction fires
-   PreCompact (unused — shell-only, can't trigger model)
-
-   PostCompact → +-------------------------------+
-   (sync)        | L1 mechanical bash hook       |  ← <500 ms, $0, always runs
-                 |   reads transcript tail       |
-                 |   reads working-state         |
-                 |   writes active.md            |
-                 |   drops need-l3-enrichment    |
-                 |   re-arms preempt marker      |
-                 +-------------------------------+
-   PostCompact → +-------------------------------+
-   (async)       | L2 enrich bash hook (async)   |  ← non-blocking; ~45s async
-                 |   claude -p Opus --effort max |
-                 |   (isolated)                  |
-                 |   overwrites active.md        |
-                 +-------------------------------+
-
-   first Stop after compact (async, consumes need-l3-enrichment marker) →
+   PreCompact (sync, <100ms) →
        +---------------------------------------+
-       | L3 refine: claude -p Opus --effort   |  ← async; runs ONCE after
-       | max (isolated), reads existing       |    the first post-compact
-       | handoff + 32KB transcript tail       |    turn finishes. Captures
-       | (including just-finished post-compact|    insight from that turn.
-       | turn) → overwrites active.md         |
+       | pre-compact-snapshot.sh               |  ← tails last 1000 transcript
+       |   tails transcript tail into          |    lines into sidecar JSONL
+       |   markers/pre-compact-snapshot.jsonl  |    for L1 to incorporate.
+       +---------------------------------------+
+
+   PostCompact → +------------------------------------------+
+   (sync)        | L1 mechanical bash hook                  |  ← <500 ms, $0
+                 |   reads transcript tail                  |    always runs
+                 |   reads pre-compact-snapshot sidecar     |    even if LLM
+                 |   reads working-state                    |    is unavailable
+                 |   embeds ## Git state JSON block         |
+                 |   adds [L:N-M] citation ranges           |
+                 |   writes active.md                       |
+                 |   drops need-l3-enrichment               |
+                 |   re-arms preempt marker                 |
+                 +------------------------------------------+
+   PostCompact → +------------------------------------------+
+   (asyncRewake) | L2 enrich (asyncRewake)                  |  ← ~45s; when
+                 |   sets l2-in-flight marker               |    done, stderr
+                 |   claude -p Opus --effort max (isolated) |    delta surfaces
+                 |   overwrites active.md                   |    as system
+                 |   clears l2-in-flight                    |    reminder
+                 +------------------------------------------+
+
+   SubagentStart (every subagent spawn, sync) →
+       +---------------------------------------+
+       | subagent-start-inject.sh              |  ← injects trimmed handoff
+       |   injects handoff (max 3KB) into      |    (max AMNESIA_SUBAGENT_-
+       |   additionalContext                   |    CONTEXT_BYTES) so
+       +---------------------------------------+    subagents know context
+
+   first Stop after compact (asyncRewake, consumes need-l3-enrichment) →
+       +-----------------------------------------------+
+       | L3 refine (asyncRewake)                       |  ← waits up to 90s
+       |   waits for l2-in-flight to clear (90s max)  |    for L2 to finish
+       |   amnesia::lock active 30                     |    serialized with
+       |   claude -p Opus (isolated)                   |    lock to avoid
+       |   reads handoff + 32KB transcript tail        |    write race
+       |   overwrites active.md                        |
+       +-----------------------------------------------+
+
+   SessionEnd (session teardown, sync) →
+       +---------------------------------------+
+       | session-end-archive.sh                |  ← final no-LLM snapshot
+       |   final L1 snapshot if needed         |    appends to sessions.json
+       |   appends to sessions.json (cap 200)  |    rotates working-state
+       |   rotates working-state.jsonl         |
        +---------------------------------------+
 
    session resumes / next turn →
-       SessionStart(compact|resume|startup) → cats active.md into
-                                              additionalContext
+       SessionStart(compact|resume|startup) →
+           cats active.md into additionalContext
+           drift-warns if git state changed since handoff written
 ```
 
 Across compactions the same `active.md` is rewritten in place, with each
-generation also archived under `handoff/archive/`. The `archive/` is what you
-audit when you suspect drift: compare consecutive snapshots to see what each
-layer added.
+generation also archived under `handoff/archive/` (auto-pruned at 50 entries).
+The `archive/` is what you audit when you suspect drift: compare consecutive
+snapshots to see what each layer added.
 
-### Why four layers (L1 + L2 + L3 + preempt)?
+### Why seven+ layers (L1 + L2 + L3 + preempt + PreCompact + SubagentStart + SessionEnd)?
 
 | Failure mode | Layer that catches it |
 |---|---|
 | `claude -p` is unreachable or hangs | L1 ran first, sync, with no LLM — handoff exists |
 | Compact happens while you're typing the next prompt | preempt already captured pre-compact state, then L1 captures post |
-| L2's bounded 16KB tail missed something important | L3 sees a wider tail + the first post-compact turn the model just performed |
-| The first post-compact turn surfaces a new constraint | L3 captures it for the NEXT compact |
+| L1's 16 KB tail missed something important | PreCompact sidecar added the last 1000 transcript lines before compaction |
+| L2's enriched handoff arrives after the session already started | asyncRewake surfaces the delta as a system reminder mid-conversation |
+| L2 and L3 race to write active.md concurrently | `l2-in-flight` marker + `amnesia::lock active 30` serialize both writers |
+| The first post-compact turn surfaces a new constraint | L3 captures it (with the serialization guarantee that L2 already finished) |
+| A spawned subagent has no context about ongoing work | SubagentStart injects a trimmed handoff as additionalContext |
+| Session ends before a scheduled L2/L3 completes | SessionEnd takes a final L1 snapshot and indexes the session |
 
-The first session after install only gets L1 + L2 + preempt. The second gets
-L3-refined-from-first too. Quality grows monotonically.
+The first session after install gets L1 + L2 + preempt + PreCompact. The
+second gets L3-refined-from-first too. Quality grows monotonically.
 
 ### Why Opus 4.7 `--effort max` instead of Haiku?
 
@@ -299,30 +330,67 @@ with `# amnesia handoff (…)`. Fix in v0.2.1: templates start at H2
 (`## Working theory`), system prompt explicitly forbids H1, sanity check
 asserts the H2 anchor instead of just any heading.
 
-## 8. Open questions for v0.3+
+## 8. Open questions for v0.4+
 
-1. **Empirically measure L3-Stop quality vs L1+L2.** v0.1.0's L3 used the main
-   model with full context; v0.2.0's L3 uses an isolated `claude -p`. Compare
-   the handoffs L3 produces vs L2 against the same transcripts and see if L3
-   is materially better than just running L2 again.
-2. **`asyncRewake` for L2 delivery.** Skip the SessionStart route entirely;
-   instead, L2 exits with code 2 + a rewakeMessage like "Continuity restored.
-   Read `active.md`." Wakes the model at exactly the right moment but is more
-   invasive.
-3. **Cross-machine sync.** Opt-in `git`-based sync of the state dir, or
-   integration with a user-configured remote.
-4. **Multi-worktree handling.** Today the slug is computed from
-   `CLAUDE_PROJECT_DIR` which differs per-worktree. That's correct for
-   isolation but means each worktree builds its handoff independently. Worth
-   thinking about a project-level handoff that all worktrees share.
-5. **Auto-tune `AMNESIA_MAX_AGE_SECONDS`** based on how often the user
-   resumes a project — short for actively-worked projects, long for
-   intermittent ones.
-6. **Skill suppression in the isolated summarizer.** Even with CLAUDE.md and
-   auto-memory disabled, auto-triggered skills can still load and pollute
-   context. The system-prompt pin handles this defensively, but a clean
-   `--no-skills` flag would be better. File request upstream.
-7. **Plan-quota accounting.** A single L2/L3/preempt call burns ~33K Opus
-   tokens of plan quota. Heavy users with many compacts/day may want a
-   `AMNESIA_BUDGET_TOKENS_PER_DAY` cap that drops to lower effort levels or
-   skips enrichment once exceeded.
+1. **Empirically measure L3 quality after the race-protection fix.** v0.2.0's
+   L3 could silently lose a write race against L2. v0.3.0 serializes them via
+   `l2-in-flight` + `amnesia::lock active 30`. The next step is to compare
+   L3 handoffs against matched L2 handoffs across a corpus of real transcripts
+   to quantify whether L3 adds material quality at the cost of ~45 extra
+   seconds of wall-clock time.
+
+2. **`asyncRewake` for L2 delivery — DONE in v0.3.0** (commit `705feb6`).
+   L2 and L3 now use `asyncRewake: true`. When the background enrichment
+   finishes after SessionStart has already injected L1, a stderr delta summary
+   surfaces as a system reminder mid-conversation. No action needed.
+
+3. **Cross-machine sync — DONE in v0.3.0** (commit `705feb6`).
+   Opt-in via `AMNESIA_SYNC_REMOTE`. The data root becomes a git-tracked
+   directory; `session-start-pull.sh` + `session-end-push.sh` handle the
+   pull/push. Off by default; no behavior change for users who don't set the
+   env var.
+
+4. **Multi-worktree handling — partially open.** The slug is computed from
+   `CLAUDE_PROJECT_DIR`, which differs per-worktree. This is correct for
+   isolation: each worktree accumulates its own handoff and working-state.
+   The open question is whether a *shared* project-level handoff (written by
+   any worktree, read by all) would be more useful than independent per-worktree
+   handoffs. Current behavior is conservative (no cross-worktree sharing);
+   the `/amnesia:sessions` command can surface related worktree handoffs.
+
+5. **Auto-tune `AMNESIA_MAX_AGE_SECONDS`** based on project activity cadence.
+   An actively-worked project should accept older handoffs; an intermittent one
+   should be more conservative. The `sessions.json` index added in v0.3.0
+   provides the data needed to implement this.
+
+6. **Skill suppression in the isolated summarizer — mitigated in v0.3.0.**
+   The `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` + `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`
+   + `--append-system-prompt` triple-layer covers skills that load from CLAUDE.md
+   and auto-memory. Skills that auto-trigger via pattern matching are handled
+   defensively by the system-prompt pin. A clean `--no-skills` flag upstream
+   would be cleaner; upstream request remains open.
+
+7. **Plan-quota accounting — DONE in v0.3.0** (commit `37ae7fa`).
+   `AMNESIA_DAILY_BUDGET_TOKENS` (default 5 000 000) tracks cumulative prompt
+   bytes in `logs/budget-YYYYMMDD.txt`. When exceeded, the summarizer
+   automatically downgrades from `max` to `medium` effort. Heavy users can
+   lower the cap to conserve quota.
+
+## 9. What v0.3.0 changed
+
+v0.3.0 is a step-change in pipeline depth and observability. The original 4-layer
+design (continuous capture → preempt → L1/L2/L3 → restore) grew to 7+ layers by
+adding dedicated hooks at the session boundaries that were previously untouched:
+`PreCompact` now snapshots the transcript sidecar before compaction runs; `SubagentStart`
+ensures spawned subagents inherit context; `SessionEnd` closes the loop with a final
+snapshot and session index entry. The `asyncRewake` switch on L2 and L3 means the
+enriched handoff can surface mid-conversation rather than waiting for the next session
+start — eliminating the awkward gap where the model resumed with only the mechanical L1.
+L2/L3 race-protection (the `l2-in-flight` marker plus `amnesia::lock active 30`)
+addresses the main reliability gap in v0.2.0, where concurrent writes could silently
+drop the better handoff. The new MCP server adds a structured search surface on top of
+the JSONL corpus, so the agent can query for past details directly rather than issuing
+a blind `Read` against a file it may not know exists. And the `events.jsonl` structured
+log plus the daily budget cap make amnesia's own behavior observable and controllable for
+the first time — you can now ask "how often does L3 succeed?" and "how much quota did
+amnesia consume today?" with a single `jq` against the state directory.

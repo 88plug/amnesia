@@ -25,7 +25,7 @@ power-user escapes you'll rarely reach for.
 
 ## Status
 
-v0.2.0 — works on Claude Code **2.1.150**. Empirically tested against an
+v0.3.0 — works on Claude Code **2.1.150**. Empirically tested against an
 OAuth subscription using Opus 4.7 with `--effort max`.
 
 ## Quick install
@@ -53,16 +53,19 @@ changes without restarting".)
 
 ## How it works
 
-Four background events, all invisible to you:
+Eight background events, all invisible to you:
 
 | Event | When | Latency | What it does |
 |---|---|---|---|
-| **Continuous capture** | every tool call | <50 ms sync | Appends a one-line record to `working-state.jsonl` |
-| **L1 mechanical** | after every compaction | <500 ms sync | Writes a deterministic handoff from JSONL + working-state |
-| **L2 enrich** | after every compaction | async, ~30–60 s background | Opus 4.7 `--effort max` rewrites the handoff with narrative |
-| **L3 refine** | first Stop event after compaction | async, ~30–60 s background | Opus refines the handoff using what just happened post-compact |
-| **Preemptive** | UserPromptSubmit at ~75% of context | async, ~30–60 s background | Snapshots state *before* the next compact while everything's still in the model's window |
-| **Restore** | SessionStart (compact / resume / startup) | <100 ms sync | Cats the handoff into `additionalContext` for the next turn |
+| **Continuous capture** | every tool call | <50 ms sync | Appends a one-line JSONL record to `working-state.jsonl`; secrets redacted inline |
+| **PreCompact** | before every compaction | <100 ms sync | Tails last `AMNESIA_PRECOMPACT_TAIL_LINES` transcript lines into a sidecar for L1 to consume |
+| **L1 mechanical** | after every compaction | <500 ms sync | Bash-only handoff from JSONL + working-state + git state + citation ranges; always runs |
+| **L2 enrich** | after every compaction | asyncRewake, ~30–60 s | Opus 4.7 `--effort max` rewrites the L1 handoff with narrative; surfaces mid-session via rewake |
+| **L3 refine** | first Stop event after compaction | asyncRewake, ~30–60 s | Opus refines using the first post-compact turn; L2/L3 race is serialized via lock |
+| **Preemptive** | UserPromptSubmit at ~75% of context | async, ~30–60 s | Snapshots state *before* the next compact fires; runs at most once per compact cycle |
+| **SubagentStart** | every subagent spawn | <50 ms sync | Injects a trimmed handoff (max 3 KB) as `additionalContext` for the subagent |
+| **SessionEnd** | session teardown | <100 ms sync | Final no-LLM snapshot if needed; appends to `sessions.json` index; rotates working-state |
+| **Restore** | SessionStart (compact / resume / startup) | <100 ms sync | Cats `active.md` into `additionalContext`; drift-warns if git state changed since the handoff was written |
 
 All summarization runs **isolated** from your `CLAUDE.md`, auto-memory, and
 auto-triggered skills (via `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and
@@ -88,10 +91,33 @@ In a heavy week (say 20 compacts → ~50 summarizer calls counting L1/L2/L3/pree
 
 | Command | When you'd use it |
 |---|---|
-| `/amnesia:snapshot [focus]` | You're at a natural pause and want a high-fidelity handoff *right now* (the preempt usually catches this automatically). |
+| `/amnesia:snapshot [focus]` | You're at a natural pause and want a high-fidelity handoff *right now* (non-blocking; pass `--deep` to delegate to the summarizer subagent). |
 | `/amnesia:recall <topic>` | Claude post-compact says it doesn't remember something you know happened. (The skill teaches the agent to do this on its own; this is the manual fallback.) |
-| `/amnesia:status` | Diagnose: what's amnesia holding for this project? Useful when debugging. |
+| `/amnesia:status` | Diagnose: data roots, L2/L3 success rates, in-flight marker state, today's budget usage. |
 | `/amnesia:promote <fact>` | Promote a permanent fact from the handoff into project `CLAUDE.md` or auto-memory, so it survives every compact natively without amnesia. |
+| `/amnesia:sessions [query]` | Search across all archived handoffs for this project (add `--all-projects` to search every project). |
+| `/amnesia:migrate` | Consolidate orphan data roots from old marketplace installs. Use `--dry-run` first, then `--execute`. |
+| `/amnesia:diff` | Diff two handoff versions. Pass `--from <ts>` and `--to <ts>` to compare specific archives. |
+| `/amnesia:why <claim>` | Trace a handoff claim back to its source transcript lines via `[L:N-M]` citation ranges. |
+
+## MCP server
+
+amnesia ships a read-only **stdio JSON-RPC MCP server** at
+`plugins/amnesia/mcp/server.py`. It runs on Python 3.6+ with no external
+dependencies (pure stdlib). Claude Code registers it automatically via the
+plugin's `mcpServers` declaration; you don't need to configure it.
+
+### Tools
+
+| Tool | Args | What it returns |
+|---|---|---|
+| `recall` | `query` (string), `max_results` (int, default 10), `scope` (`current_project` \| `all_projects`) | Matches from the active handoff, archived handoffs, and gzipped working-state archives — `{path, line_number, snippet, project_slug, mtime}` ordered by recency. Capped at 32 KB total / 4 KB per snippet. |
+| `handoff_get` | `session_id` (optional), `project` (optional) | Full markdown of the active handoff (default) or a specific archived handoff. |
+
+`recall` is the primary tool. The continuity-protocol skill teaches the agent
+to call it automatically when context feels thin — you don't need to invoke it
+manually. `handoff_get` is for when you want the full handoff document in
+context rather than search results.
 
 ## Subagent
 
@@ -109,11 +135,22 @@ skill explicitly tells the model **not to narrate restoration** to you.
 
 ## Configuration
 
+All env vars are optional with sensible defaults. Set them in your shell
+profile or project `.env` file — amnesia reads them at hook execution time.
+
 | Env var | Default | Effect |
 |---|---|---|
-| `AMNESIA_EFFORT` | `max` | Override `--effort` level for summarizer calls. Drop to `xhigh` / `high` / `medium` / `low` if you want to spend less plan quota per compact. |
+| `AMNESIA_EFFORT` | `max` | Override `--effort` level for summarizer calls. Drop to `xhigh` / `high` / `medium` / `low` to spend less plan quota per compact. |
 | `AMNESIA_MAX_AGE_SECONDS` | 86400 (24h) | Reject cross-session restore if the handoff is older than this. |
-| `AMNESIA_PREEMPT_THRESHOLD_BYTES` | 2000000 (2 MB JSONL since last compact ≈ ~75% window) | Bytes since the most recent `compact_boundary` at which the preempt fires. Lower = earlier preempt. |
+| `AMNESIA_PREEMPT_THRESHOLD_BYTES` | 2000000 (~2 MB JSONL ≈ 75% window) | Bytes since the most recent `compact_boundary` at which the preempt fires. Lower = earlier preempt. |
+| `AMNESIA_DAILY_BUDGET_TOKENS` | 5000000 (~5 MB) | Daily prompt-byte cap. When exceeded, the summarizer downgrades from `max` to `medium` effort automatically. |
+| `AMNESIA_WS_MAX_LINES` | 5000 | `working-state.jsonl` line cap. Older lines rotate to `logs/archive/` as gzipped JSONL. |
+| `AMNESIA_ARCHIVE_KEEP` | 50 | Maximum entries kept in `handoff/archive/`. Oldest are pruned automatically. |
+| `AMNESIA_PRECOMPACT_TAIL_LINES` | 1000 | Lines of transcript snapshotted by the `PreCompact` hook sidecar. |
+| `AMNESIA_SUBAGENT_CONTEXT_BYTES` | 3000 | Byte cap for the handoff snippet injected into spawned subagents. |
+| `AMNESIA_SUMMARY_MIN_BYTES` | 500 | Sanity check lower bound — handoffs smaller than this are rejected and L1 is kept. |
+| `AMNESIA_SUMMARY_MAX_BYTES` | 8000 | Sanity check upper bound — handoffs larger than this are rejected. |
+| `AMNESIA_SYNC_REMOTE` | (unset) | Git remote URL. When set, enables cross-machine sync (see below). |
 
 ## State layout
 
@@ -124,12 +161,19 @@ handoff/
   active.md                       # the live handoff (L1 → L2 → L3 → preempt rewrites in order)
   archive/
     YYYYMMDDTHHMMSSZ-{L1|L2|L3|preempt}-{auto|manual}.md
-working-state.jsonl               # append-only continuous capture
+working-state.jsonl               # append-only continuous capture (auto-rotates at 5000 lines)
 markers/
   need-l3-enrichment              # L1 drops; L3 (Stop hook) consumes
   preempt-done-this-cycle         # preempt drops; L1 clears on next compact (re-arm)
+  l2-in-flight                    # L2 sets; L3 waits up to 90 s for it to clear
+  pre-compact-snapshot.jsonl      # PreCompact sidecar; L1 consumes
 logs/
-  amnesia.log                     # debug log
+  amnesia.log                     # debug plaintext log
+  events.jsonl                    # structured JSONL event log (success rates, budget, timings)
+  budget-YYYYMMDD.txt             # daily prompt-byte accumulator
+  archive/
+    working-state-YYYYMMDDTHHMMSSZ.jsonl.gz   # rotated working-state segments
+sessions.json                     # index of all archived sessions (capped at 200 entries)
 ```
 
 `${CLAUDE_PLUGIN_DATA}` resolves at runtime to
@@ -142,10 +186,28 @@ which lets the same plugin from different marketplaces coexist.)
 mirroring Claude Code's own `~/.claude/projects/<slug>/` layout. So a project
 at `/home/andrew/amnesia` lands under `…/projects/-home-andrew-amnesia/`.
 
+## Cross-machine sync (opt-in)
+
+Set `AMNESIA_SYNC_REMOTE` to any git remote URL and amnesia will git-track
+your entire data root, pulling before each session starts and pushing after
+each session ends.
+
+```bash
+export AMNESIA_SYNC_REMOTE=git@github.com:you/amnesia-state.git
+```
+
+The remote must exist and be push-able. amnesia uses your existing SSH or
+HTTPS credentials — it does not manage authentication. On the second machine,
+set the same env var; amnesia will clone the remote on first session start if
+the local data root does not yet exist.
+
+**This is off by default.** Not setting `AMNESIA_SYNC_REMOTE` means all state
+stays machine-local, exactly as in v0.2.x.
+
 ## What amnesia explicitly does NOT do
 
-- **No cross-machine sync.** Files are machine-local. Use git or rsync if
-  you need multi-machine continuity.
+- **Cross-machine sync is OPT-IN.** Files are machine-local by default. Set
+  `AMNESIA_SYNC_REMOTE` (see above) if you need multi-machine continuity.
 - **No vector DB, no daemon, no Chroma, no Bun worker.** Bash + Python +
   native hooks + `claude -p`. Boring on purpose.
 - **No general "knowledge store."** Cross-session facts belong in project
