@@ -8,5 +8,11 @@
   "license": "MIT",
   "homepage": "https://github.com/88plug/amnesia",
   "repository": "https://github.com/88plug/amnesia.git",
-  "keywords": ["context", "compaction", "memory", "continuity", "hooks", "claude-code", "session"]
+  "keywords": ["context", "compaction", "memory", "continuity", "hooks", "claude-code", "session"],
+  "mcpServers": {
+    "amnesia": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.py"]
+    }
+  }
 }
