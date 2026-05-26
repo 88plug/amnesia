@@ -60,6 +60,14 @@ python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lib/jsonl_walker.py summary <transcript>
 
 Don't re-derive lost work when you can recover it for the cost of one file read.
 
+If you need a specific past detail and the handoff doesn't cover it, use the
+`recall` MCP tool (amnesia ships one) instead of guessing — it greps across
+all your handoffs.
+
+Citations in the handoff like `[L:1234-1240]` are line ranges in the on-disk
+JSONL transcript. Use `Read` on the transcript at those ranges to recover
+exact bytes when needed.
+
 ## When to act
 
 | Situation | What to do |
