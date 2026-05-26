@@ -47,12 +47,68 @@ if [ "$SOURCE" != "compact" ]; then
   fi
 fi
 
+# --- Git drift detection ---
+# Extract the embedded git state from the handoff's ## Git state section.
+SAVED_GIT_STATE=""
+if grep -q '^## Git state' "$ACTIVE" 2>/dev/null; then
+  # Grab the fenced ```json block under ## Git state (first occurrence).
+  SAVED_GIT_STATE="$(awk '/^## Git state/{f=1} f && /^```json/{in_block=1;next} in_block && /^```/{exit} in_block{print}' "$ACTIVE" 2>/dev/null || true)"
+fi
+
+GIT_DRIFT=false
+GIT_DRIFT_MSG=""
+CURRENT_GIT_STATE="$(amnesia::git_state)"
+
+if [ -n "$SAVED_GIT_STATE" ] && [ "$SAVED_GIT_STATE" != "{}" ]; then
+  SAVED_BRANCH="$(printf '%s' "$SAVED_GIT_STATE" | jq -r '.branch // empty' 2>/dev/null || true)"
+  SAVED_HEAD="$(printf '%s' "$SAVED_GIT_STATE" | jq -r '.head // empty' 2>/dev/null || true)"
+  CURRENT_BRANCH="$(printf '%s' "$CURRENT_GIT_STATE" | jq -r '.branch // empty' 2>/dev/null || true)"
+  CURRENT_HEAD="$(printf '%s' "$CURRENT_GIT_STATE" | jq -r '.head // empty' 2>/dev/null || true)"
+
+  if [ -n "$SAVED_BRANCH" ] || [ -n "$SAVED_HEAD" ]; then
+    if [ "$SAVED_BRANCH" != "$CURRENT_BRANCH" ] || [ "$SAVED_HEAD" != "$CURRENT_HEAD" ]; then
+      GIT_DRIFT=true
+      GIT_DRIFT_MSG="$(cat <<EOF
+> [!IMPORTANT]
+> Git state changed since this handoff was written.
+> Then: branch ${SAVED_BRANCH:-<unknown>} @ ${SAVED_HEAD:-<unknown>}
+> Now:  branch ${CURRENT_BRANCH:-<unknown>} @ ${CURRENT_HEAD:-<unknown>}
+> If the handoff refers to files or branches that no longer match, trust observation over the handoff.
+EOF
+)"
+    fi
+  fi
+fi
+
+# --- Data roots count ---
+DATA_ROOTS_N="$(amnesia::all_data_roots | wc -l | tr -d ' ')"
+DATA_ROOTS_NOTE=""
+if [ "${DATA_ROOTS_N:-1}" -gt 1 ]; then
+  DATA_ROOTS_NOTE="(amnesia: detected ${DATA_ROOTS_N} data roots — run \`/amnesia:status\` to inspect)"
+fi
+
+# --- Drop last-injected-mtime marker ---
+# Records current epoch and active.md mtime for diagnosing L2-vs-SessionStart races.
+NOW_EPOCH="$(date -u +%s)"
+ACTIVE_MTIME="$(stat -c %Y "$ACTIVE" 2>/dev/null || stat -f %m "$ACTIVE" 2>/dev/null || echo 0)"
+mkdir -p "$STATE_DIR/markers"
+printf '{"epoch":%s,"active_mtime":%s}\n' "$NOW_EPOCH" "$ACTIVE_MTIME" \
+  > "$STATE_DIR/markers/last-injected-mtime"
+
 # Build the injected text. Preamble teaches the recovery protocol; body is the
 # handoff verbatim. The harness logs `additionalContextChars` but does not
 # enforce a hard cap in 2.1.150; we still keep it reasonable.
 BODY="$(cat "$ACTIVE")"
-PREAMBLE="$(cat <<EOF
-[amnesia / source=${SOURCE:-unknown}] Continuity record from the previous slice of this
+
+# Build preamble, optionally prefixed with git-drift warning and data-roots note.
+PREAMBLE_PARTS=""
+if [ -n "$GIT_DRIFT_MSG" ]; then
+  PREAMBLE_PARTS="${GIT_DRIFT_MSG}
+
+"
+fi
+
+CORE_PREAMBLE="[amnesia / source=${SOURCE:-unknown}] Continuity record from the previous slice of this
 session is reattached below. The model that wrote it had full context; you do
 not. Treat the handoff as authoritative for *what was happening*, and use the
 transcript path it cites for any detail it omits.
@@ -61,13 +117,19 @@ If anything below conflicts with what you observe now, trust observation —
 files on disk and command outputs supersede the handoff.
 
 USE THIS SILENTLY. Do not narrate restoration to the user. Do not say
-"based on the handoff" or "according to amnesia" or "I see we were…". Just
+\"based on the handoff\" or \"according to amnesia\" or \"I see we were…\". Just
 continue the user's task as if no break had happened. The user knows
-amnesia is running; they don't need it described.
+amnesia is running; they don't need it described."
 
---- handoff begins ---
-EOF
-)"
+if [ -n "$DATA_ROOTS_NOTE" ]; then
+  CORE_PREAMBLE="${CORE_PREAMBLE}
+
+${DATA_ROOTS_NOTE}"
+fi
+
+PREAMBLE="${PREAMBLE_PARTS}${CORE_PREAMBLE}
+
+--- handoff begins ---"
 
 # Truncate body to a generous-but-finite 18000 chars to stay polite to the
 # context window even though no hard cap is enforced.
@@ -87,5 +149,6 @@ jq -n --arg c "$INJECTED" '{
   }
 }'
 
+amnesia::log_jsonl "SessionStart" "delivered" "source=${SOURCE:-unknown}" "git_drift=$GIT_DRIFT" "data_roots=${DATA_ROOTS_N:-1}"
 amnesia::log info "session-start: injected handoff (${#INJECTED} chars, source=$SOURCE)"
 exit 0
