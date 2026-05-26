@@ -11,6 +11,7 @@
   [![license](https://img.shields.io/badge/license-FSL--1.1--ALv2-000?style=for-the-badge)](./LICENSE.md)
   [![claude code](https://img.shields.io/badge/claude%20code-2.1.150%2B-000?style=for-the-badge)](https://code.claude.com)
   [![marketplace](https://img.shields.io/badge/install-88plug-000?style=for-the-badge)](https://github.com/88plug/claude-code-plugins)
+  [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/88plug/amnesia)
 
 </div>
 
