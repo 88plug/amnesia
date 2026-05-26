@@ -1,6 +1,18 @@
 {
   "description": "amnesia: capture working state continuously, snapshot at compact boundaries, re-inject on session resume. All summarization is async + isolated so the user never sees amnesia at work.",
+  "_comment_asyncRewake": "asyncRewake IS supported in 2.1.150. Evidence: (1) strings on the binary returned 'flushPendingAsyncRewakeHooks', 'ASYNC_REWAKE_FLUSH_TIMEOUT_MS', and 'asyncRewake' as a property key. (2) The official docs at code.claude.com/docs/en/hooks document asyncRewake: true as a valid command-hook field that implies async and wakes Claude on exit code 2, surfacing the hook's stderr as a system reminder. DECISION: post-compact-enrich.sh and stop-refine.sh are changed from async:true to asyncRewake:true. Both hooks already write a delta to stderr on success (per Agent A's design). asyncRewake lets Claude receive those deltas as a system reminder without an extra round-trip.",
   "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-compact-snapshot.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Read|Write|Edit|MultiEdit|Bash|Glob|Grep|WebFetch",
@@ -25,7 +37,7 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/post-compact-enrich.sh\"",
             "timeout": 300,
-            "async": true
+            "asyncRewake": true
           }
         ]
       }
@@ -37,7 +49,7 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-refine.sh\"",
             "timeout": 300,
-            "async": true
+            "asyncRewake": true
           }
         ]
       }
@@ -54,7 +66,27 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-start-inject.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-pull.sh\"",
+            "timeout": 15
+          }
+        ]
+      },
       {
         "matcher": "compact|resume|startup",
         "hooks": [
@@ -62,6 +94,22 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-restore.sh\"",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-end-archive.sh\"",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-end-push.sh\"",
+            "timeout": 15
           }
         ]
       }
