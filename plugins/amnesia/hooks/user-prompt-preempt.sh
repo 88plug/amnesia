@@ -24,9 +24,23 @@ STATE_DIR="$(amnesia::ensure_state)"
 ACTIVE="$STATE_DIR/handoff/active.md"
 ARCHIVE="$STATE_DIR/handoff/archive"
 PREEMPT_DONE="$STATE_DIR/markers/preempt-done-this-cycle"
+L2_MARKER="$STATE_DIR/markers/l2-in-flight"
 
 # Already preempted this cycle → silent exit.
 [ -f "$PREEMPT_DONE" ] && exit 0
+
+# L2-in-flight guard: if L2 is running and its marker is recent (<90s),
+# skip the preempt to avoid racing with L2 on active.md.
+if [ -f "$L2_MARKER" ]; then
+  NOW_EPOCH="$(date -u +%s)"
+  L2_EPOCH="$(cat "$L2_MARKER" 2>/dev/null || echo 0)"
+  L2_AGE=$(( NOW_EPOCH - L2_EPOCH ))
+  if [ "$L2_AGE" -lt 90 ]; then
+    amnesia::log_jsonl "preempt" "skipped_l2_in_flight" "l2_age_s=$L2_AGE"
+    amnesia::log info "preempt: L2 in-flight (${L2_AGE}s old); skipping"
+    exit 0
+  fi
+fi
 
 SESSION_ID="$(amnesia::field session_id)"
 TRANSCRIPT="$(amnesia::field transcript_path)"
@@ -65,10 +79,21 @@ fi
 date -u +%s > "$PREEMPT_DONE" || true
 amnesia::log info "preempt triggered (bytes since boundary: $BYTES_SINCE_BOUNDARY ≥ $THRESHOLD_BYTES)"
 
+# Acquire lock on active.md before reading or writing.
+if ! amnesia::lock active 30; then
+  amnesia::log_jsonl "preempt" "lock_timeout"
+  amnesia::log warn "preempt: could not acquire lock on active.md within 30s; exiting"
+  exit 0
+fi
+
+amnesia::log_jsonl "preempt" "started" "bytes_since_boundary=$BYTES_SINCE_BOUNDARY" "threshold=$THRESHOLD_BYTES" "effort=${AMNESIA_EFFORT:-max}"
+
 TS_FILE="$(date -u +%Y%m%dT%H%M%SZ)"
 TAIL="$(tail -c 16384 "$TRANSCRIPT" 2>/dev/null || true)"
 L1_BODY=""
 [ -f "$ACTIVE" ] && L1_BODY="$(cat "$ACTIVE")"
+
+START_MS="$(date +%s%3N 2>/dev/null || printf '%d000' "$(date +%s)")"
 
 PROMPT="$(cat <<PROMPT_EOF
 A Claude Code session is approaching its compaction threshold. Compaction
@@ -115,11 +140,15 @@ trap 'rm -f "$TMP_OUT"' EXIT
 
 if ! printf '%s' "$PROMPT" | amnesia::summarize 180 "preempt" > "$TMP_OUT"; then
   amnesia::log warn "preempt summarizer failed; previous handoff remains"
+  amnesia::unlock active
   exit 0
 fi
 
-if [ ! -s "$TMP_OUT" ] || ! head -c 200 "$TMP_OUT" | grep -q '^## Working theory'; then
-  amnesia::log warn "preempt output malformed (missing '## Working theory' anchor); previous handoff remains"
+# Sanity check using the shared function (replaces the old head|grep check).
+if ! amnesia::summarize_sanity_check "$TMP_OUT"; then
+  amnesia::log_jsonl "preempt" "sanity_failed" "out_bytes=$(wc -c < "$TMP_OUT" 2>/dev/null || echo 0)"
+  amnesia::log warn "preempt output malformed (sanity check failed); previous handoff remains"
+  amnesia::unlock active
   exit 0
 fi
 
@@ -131,6 +160,15 @@ amnesia::wrap_handoff \
   < "$TMP_OUT" \
   | amnesia::atomic_write "$ACTIVE"
 
+amnesia::unlock active
+
 cp "$ACTIVE" "$ARCHIVE/${TS_FILE}-preempt.md" || true
 amnesia::log info "preemptive handoff written"
+
+END_MS="$(date +%s%3N 2>/dev/null || printf '%d000' "$(date +%s)")"
+DURATION_MS=$(( END_MS - START_MS ))
+OUT_BYTES="$(wc -c < "$ACTIVE" 2>/dev/null || echo 0)"
+
+amnesia::log_jsonl "preempt" "finished" "duration_ms=$DURATION_MS" "out_bytes=$OUT_BYTES"
+
 exit 0

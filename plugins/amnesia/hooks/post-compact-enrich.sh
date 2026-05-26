@@ -19,11 +19,27 @@ amnesia::has_jq || exit 0
 STATE_DIR="$(amnesia::ensure_state)"
 ACTIVE="$STATE_DIR/handoff/active.md"
 ARCHIVE="$STATE_DIR/handoff/archive"
+L2_MARKER="$STATE_DIR/markers/l2-in-flight"
+
+# Drop an in-flight marker so L3 and preempt know we're working.
+date +%s > "$L2_MARKER" || true
+
+# Always remove the in-flight marker on exit (success, failure, or signal).
+trap 'rm -f "$L2_MARKER"' EXIT
 
 SESSION_ID="$(amnesia::field session_id)"
 TRANSCRIPT="$(amnesia::field transcript_path)"
 TRIGGER="$(amnesia::field trigger)"
 TS_FILE="$(date -u +%Y%m%dT%H%M%SZ)"
+
+amnesia::log_jsonl "L2" "started" "trigger=${TRIGGER:-unknown}" "effort=${AMNESIA_EFFORT:-max}"
+
+# Acquire lock on active.md before reading or writing.
+if ! amnesia::lock active 30; then
+  amnesia::log_jsonl "L2" "lock_timeout"
+  amnesia::log warn "L2: could not acquire lock on active.md within 30s; exiting"
+  exit 0
+fi
 
 # Cap input at ~16KB of transcript tail + the L1 handoff. Bigger input = more
 # quota use; we already have L1's distillation to lean on.
@@ -33,6 +49,9 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
 fi
 L1_BODY=""
 [ -f "$ACTIVE" ] && L1_BODY="$(cat "$ACTIVE")"
+L1_SIZE="${#L1_BODY}"
+
+START_MS="$(date +%s%3N 2>/dev/null || printf '%d000' "$(date +%s)")"
 
 PROMPT="$(cat <<PROMPT_EOF
 The session was compacted (trigger: ${TRIGGER:-unknown}). Produce a Layer-2
@@ -78,18 +97,20 @@ PROMPT_EOF
 )"
 
 TMP_OUT="$(mktemp)"
-trap 'rm -f "$TMP_OUT"' EXIT
+# Note: the EXIT trap already removes L2_MARKER; also clean up TMP_OUT.
+trap 'rm -f "$TMP_OUT" "$L2_MARKER"' EXIT
 
 if ! printf '%s' "$PROMPT" | amnesia::summarize 180 "L2-enrich" > "$TMP_OUT"; then
   amnesia::log warn "L2 summarizer failed; L1 handoff remains in place"
+  amnesia::unlock active
   exit 0
 fi
 
-# Sanity check: output must begin at the expected H2 anchor. This catches
-# both empty output and the v0.2.0 bug where the model emitted its own H1
-# (producing a duplicate header after wrap_handoff added the outer one).
-if [ ! -s "$TMP_OUT" ] || ! head -c 200 "$TMP_OUT" | grep -q '^## Working theory'; then
-  amnesia::log warn "L2 output looked malformed (missing '## Working theory' anchor); L1 handoff remains in place"
+# Sanity check using the shared function (replaces the old head|grep check).
+if ! amnesia::summarize_sanity_check "$TMP_OUT"; then
+  amnesia::log_jsonl "L2" "sanity_failed" "out_bytes=$(wc -c < "$TMP_OUT" 2>/dev/null || echo 0)"
+  amnesia::log warn "L2 output looked malformed (sanity check failed); L1 handoff remains in place"
+  amnesia::unlock active
   exit 0
 fi
 
@@ -101,6 +122,29 @@ amnesia::wrap_handoff \
   < "$TMP_OUT" \
   | amnesia::atomic_write "$ACTIVE"
 
+amnesia::unlock active
+
 cp "$ACTIVE" "$ARCHIVE/${TS_FILE}-L2-${TRIGGER:-unknown}.md" || true
 amnesia::log info "L2 enriched handoff written; trigger=$TRIGGER effort=${AMNESIA_EFFORT:-max}"
+
+END_MS="$(date +%s%3N 2>/dev/null || printf '%d000' "$(date +%s)")"
+DURATION_MS=$(( END_MS - START_MS ))
+L2_SIZE="$(wc -c < "$ACTIVE" 2>/dev/null || echo 0)"
+DELTA=$(( L2_SIZE - L1_SIZE ))
+
+amnesia::log_jsonl "L2" "finished" "trigger=${TRIGGER:-unknown}" "effort=${AMNESIA_EFFORT:-max}" "duration_ms=$DURATION_MS" "l1_bytes=$L1_SIZE" "l2_bytes=$L2_SIZE" "delta_bytes=$DELTA"
+
+# If L2 output differs meaningfully from L1, emit a stderr delta summary.
+# Meaningful = size delta > 500 bytes OR first H2 content differs.
+# This is prep for a future asyncRewake: true config change (Agent C decides).
+# For now we always exit 0.
+if [ "${DELTA#-}" -gt 500 ] 2>/dev/null; then
+  if [ "$DELTA" -gt 0 ]; then
+    DELTA_HUMAN="+$(( DELTA / 1024 )).$(( (DELTA % 1024) * 10 / 1024 ))KB"
+  else
+    DELTA_HUMAN="-$(( ${DELTA#-} / 1024 )).$(( (${DELTA#-} % 1024) * 10 / 1024 ))KB"
+  fi
+  printf 'amnesia L2: handoff refined (%s enriched). Run /amnesia:status to inspect.\n' "$DELTA_HUMAN" >&2
+fi
+
 exit 0

@@ -21,10 +21,34 @@ STATE_DIR="$(amnesia::ensure_state)"
 ACTIVE="$STATE_DIR/handoff/active.md"
 ARCHIVE="$STATE_DIR/handoff/archive"
 MARKER="$STATE_DIR/markers/need-l3-enrichment"
+L2_MARKER="$STATE_DIR/markers/l2-in-flight"
 
 # Marker check: only fire after a real compaction. ~99% of Stop events have no
 # marker and we exit silently.
 [ -f "$MARKER" ] || exit 0
+
+# L2-in-flight guard: if L2 is still running and its marker is recent (<90s),
+# wait up to 90s for it to clear before proceeding. If still in flight after
+# the wait, skip this L3 run to avoid clobbering L2's output.
+if [ -f "$L2_MARKER" ]; then
+  NOW_EPOCH="$(date -u +%s)"
+  L2_EPOCH="$(cat "$L2_MARKER" 2>/dev/null || echo 0)"
+  L2_AGE=$(( NOW_EPOCH - L2_EPOCH ))
+  if [ "$L2_AGE" -lt 90 ]; then
+    amnesia::log info "L3: L2 in-flight (${L2_AGE}s old); waiting up to 90s"
+    WAITED=0
+    while [ -f "$L2_MARKER" ] && [ "$WAITED" -lt 90 ]; do
+      sleep 2
+      WAITED=$(( WAITED + 2 ))
+    done
+    if [ -f "$L2_MARKER" ]; then
+      amnesia::log_jsonl "L3" "skipped_l2_in_flight" "waited_s=$WAITED"
+      amnesia::log warn "L3: L2 still in flight after ${WAITED}s wait; skipping to avoid clobber"
+      exit 0
+    fi
+    amnesia::log info "L3: L2 cleared after ${WAITED}s; proceeding"
+  fi
+fi
 
 # Stale-marker guard: discard markers older than 1 hour. Past that, the post-
 # compact turn we wanted to learn from is too far away to be meaningful.
@@ -44,6 +68,15 @@ SESSION_ID="$(amnesia::field session_id)"
 TRANSCRIPT="$(amnesia::field transcript_path)"
 TS_FILE="$(date -u +%Y%m%dT%H%M%SZ)"
 
+amnesia::log_jsonl "L3" "started" "effort=${AMNESIA_EFFORT:-max}"
+
+# Acquire lock on active.md before reading or writing.
+if ! amnesia::lock active 30; then
+  amnesia::log_jsonl "L3" "lock_timeout"
+  amnesia::log warn "L3: could not acquire lock on active.md within 30s; exiting"
+  exit 0
+fi
+
 # Feed the summarizer the EXISTING L2 handoff plus a larger transcript tail
 # (32KB instead of 16KB) since the model just used post-compact context that
 # we want captured for next time.
@@ -53,6 +86,8 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
 fi
 CURRENT=""
 [ -f "$ACTIVE" ] && CURRENT="$(cat "$ACTIVE")"
+
+START_MS="$(date +%s%3N 2>/dev/null || printf '%d000' "$(date +%s)")"
 
 PROMPT="$(cat <<PROMPT_EOF
 A Claude Code session was just compacted, and the restored agent has just
@@ -105,11 +140,15 @@ trap 'rm -f "$TMP_OUT"' EXIT
 
 if ! printf '%s' "$PROMPT" | amnesia::summarize 180 "L3-refine" > "$TMP_OUT"; then
   amnesia::log warn "L3 summarizer failed; existing handoff (L1 or L2) remains in place"
+  amnesia::unlock active
   exit 0
 fi
 
-if [ ! -s "$TMP_OUT" ] || ! head -c 200 "$TMP_OUT" | grep -q '^## Working theory'; then
-  amnesia::log warn "L3 output looked malformed (missing '## Working theory' anchor); existing handoff remains in place"
+# Sanity check using the shared function (replaces the old head|grep check).
+if ! amnesia::summarize_sanity_check "$TMP_OUT"; then
+  amnesia::log_jsonl "L3" "sanity_failed" "out_bytes=$(wc -c < "$TMP_OUT" 2>/dev/null || echo 0)"
+  amnesia::log warn "L3 output looked malformed (sanity check failed); existing handoff remains in place"
+  amnesia::unlock active
   exit 0
 fi
 
@@ -121,6 +160,15 @@ amnesia::wrap_handoff \
   < "$TMP_OUT" \
   | amnesia::atomic_write "$ACTIVE"
 
+amnesia::unlock active
+
 cp "$ACTIVE" "$ARCHIVE/${TS_FILE}-L3.md" || true
 amnesia::log info "L3 refined handoff written"
+
+END_MS="$(date +%s%3N 2>/dev/null || printf '%d000' "$(date +%s)")"
+DURATION_MS=$(( END_MS - START_MS ))
+OUT_BYTES="$(wc -c < "$ACTIVE" 2>/dev/null || echo 0)"
+
+amnesia::log_jsonl "L3" "finished" "effort=${AMNESIA_EFFORT:-max}" "duration_ms=$DURATION_MS" "out_bytes=$OUT_BYTES"
+
 exit 0
