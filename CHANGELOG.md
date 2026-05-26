@@ -8,6 +8,18 @@ Versions correspond to the `version` field in `plugins/amnesia/plugin.json`.
 
 ## [Unreleased]
 
+### Changed — license
+
+- **Relicensed from MIT to `FSL-1.1-ALv2`** (Functional Source License,
+  Version 1.1, Apache-2.0 Future License). Source remains visible; redistribution
+  and modification remain permitted for any Permitted Purpose. A Competing Use —
+  offering amnesia (or a substantially similar substitute) as a commercial
+  product or service — is no longer a Permitted Purpose. Each released version
+  automatically converts to the Apache License 2.0 on the second anniversary of
+  its release date. See [`LICENSE.md`](./LICENSE.md) for the full terms.
+- `LICENSE` (MIT) removed in favor of `LICENSE.md` (FSL-1.1-ALv2).
+- `plugins/amnesia/.claude-plugin/plugin.json` license updated to `FSL-1.1-ALv2`.
+
 ---
 
 ## [0.3.0] — 2026-05-25
