@@ -145,7 +145,10 @@ amnesia::log_jsonl() {
   for kv in "$@"; do
     k="${kv%%=*}"; v="${kv#*=}"
     # If v is a number or true/false/null, emit raw; else string-quote.
-    if [[ "$v" =~ ^-?[0-9]+(\.[0-9]+)?$|^(true|false|null)$ ]]; then
+    # Split the literal cases out of the regex: an unquoted '|' alternation inside
+    # [[ =~ ]] is a parse error under zsh, which breaks `source common.sh` when a
+    # slash command sources this lib in the user's shell (hooks run it under bash).
+    if [[ "$v" =~ ^-?[0-9]+(\.[0-9]+)?$ || "$v" == true || "$v" == false || "$v" == null ]]; then
       body+=",\"$k\":$v"
     else
       v="${v//\\/\\\\}"; v="${v//\"/\\\"}"; v="${v//$'\n'/\\n}"
