@@ -26,7 +26,7 @@ from typing import Any, Dict, Iterator, List, Optional
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "amnesia"
-SERVER_VERSION = "0.3.0"
+SERVER_VERSION = "0.3.2"
 
 MAX_SNIPPET_CHARS = 4096
 MAX_RECALL_RESPONSE_CHARS = 32768

@@ -2,7 +2,7 @@
 name: summarizer
 description: Internal amnesia subagent for producing a high-fidelity session handoff. Invoke via the Agent tool when the user wants a deeper or more nuanced snapshot than `/amnesia:snapshot` produces — e.g. before a long break, after a major decision, or when /context shows you're close to the auto-compact threshold and you want to lock in continuity before the harness fires.
 model: sonnet
-tools: Read, Bash, Glob, Grep
+tools: Read, Write, Bash, Glob, Grep
 ---
 
 # Amnesia handoff summarizer
