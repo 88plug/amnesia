@@ -73,6 +73,10 @@ if [ -f "$EVENTS" ]; then
   L3_TOTAL="$(printf '%s\n' "$L3_ATTEMPTS" | grep -c '"hook":"L3"' || echo 0)"
   L3_OK="$(printf '%s\n' "$L3_ATTEMPTS" | grep -c '"exit":0' || echo 0)"
   printf '  L3 success rate (last 10): %s/%s\n' "$L3_OK" "$L3_TOTAL"
+  if [ "${L2_TOTAL:-0}" = "0" ] && [ "${L3_TOTAL:-0}" = "0" ]; then
+    echo "  NOTE: L2/L3 0/0 = no compaction has happened yet (idle/normal), NOT broken hooks."
+    echo "        Continuous capture (L1) health is the working-state.jsonl / events.jsonl growth below."
+  fi
 
   # L2 in-flight
   INFLIGHT="$STATE/markers/l2-in-flight"
@@ -146,10 +150,25 @@ fi
 
 ## Your output
 
-Synthesize the above into 3-5 lines of diagnosis:
+Synthesize the above into 3-5 lines of diagnosis. Interpret the signals correctly — do
+not mistake an idle install for a broken one:
 
-- Is amnesia healthy? Cite the L2/L3 success rates and the handoff age.
-- Are there orphan roots? If yes, suggest `/amnesia:migrate`.
-- Is L2 stuck in flight or the L3 marker stale? Call it out.
-- Is working-state growing unusually large (>5000 lines)? Note it.
-- End with a one-line verdict: healthy / warning (cite reason) / broken (cite reason).
+- **Continuous capture (L1)** runs on every tool call via the PostToolUse hook. The proof
+  it's working is `working-state.jsonl` / `events.jsonl` GROWING — recent entries mean
+  capture is healthy. Only a total absence of `events.jsonl` *after real tool use this
+  session* indicates capture isn't firing.
+- **L2/L3 fire only on a compaction.** An L2/L3 rate of `0/0` means **no compaction has
+  happened yet** (a fresh project, or no compaction this session). This is NORMAL — do NOT
+  report "hooks not firing" or "auto-capture dead" from a `0/0` rate. Treat L2/L3 as a
+  problem only if a compaction actually occurred (archive entries exist, or working-state
+  is large) yet no handoff was produced, or if an explicit hook error is present.
+- Cite the handoff age; flag L2 stuck in flight, a stale L3 marker, orphan roots (suggest
+  `/amnesia:migrate`), or working-state >5000 lines.
+- End with a one-line verdict:
+  - **healthy** — capture active (working-state/events growing) and nothing stuck;
+  - **idle** — installed and clean but nothing captured yet / no compaction yet (the
+    expected state for a fresh or short session) — this is fine, not a warning;
+  - **warning** (cite reason) — L2 stuck in flight, stale L3 marker, orphan roots, or a
+    handoff that is stale *after* a compaction;
+  - **broken** (cite reason) — only an actual failure: a hook error, or a compaction
+    occurred but capture wrote nothing.
