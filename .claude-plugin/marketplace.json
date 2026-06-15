@@ -1,0 +1,32 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "amnesia",
+  "description": "Seamless context continuity across Claude Code compaction. Four background layers (continuous tool-call capture, mechanical PostCompact handoff, async Opus 4.7",
+  "owner": {
+    "name": "88plug",
+    "email": "andrew@88plug.com"
+  },
+  "plugins": [
+    {
+      "name": "amnesia",
+      "source": "./plugins/amnesia",
+      "displayName": "Amnesia",
+      "description": "Seamless context continuity across Claude Code compaction. Four background layers (continuous tool-call capture, mechanical PostCompact handoff, async Opus 4.7 enrichment at --effort max, async Stop-hook refinement, and preemptive snapshot before the next compact) keep the agent's working state intact across every compaction and resume. All summarization is isolated from CLAUDE.md/auto-memory and invisible to the user.",
+      "author": {
+        "name": "88plug",
+        "email": "andrew@88plug.com"
+      },
+      "homepage": "https://github.com/88plug/amnesia",
+      "license": "FSL-1.1-ALv2",
+      "category": "productivity",
+      "tags": [
+        "type:plugin",
+        "context",
+        "compaction",
+        "memory",
+        "continuity",
+        "hooks"
+      ]
+    }
+  ]
+}
