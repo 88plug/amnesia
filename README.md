@@ -7,6 +7,7 @@ Context continuity for Claude Code — keep the agent's working state intact acr
 [![plugin-validate](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml/badge.svg)](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml)
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue?style=flat)](LICENSE.md)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2?style=flat)](https://github.com/88plug/claude-code-plugins)
+[![Docs](https://img.shields.io/badge/docs-online-2ea44f?style=flat)](https://88plug.github.io/amnesia/)
 
 </div>
 
