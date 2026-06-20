@@ -2,6 +2,8 @@
 
 # amnesia
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/88plug/amnesia)
+
 Context continuity for Claude Code — keep the agent's working state intact across every `/compact`, auto-compact, and resume.
 
 [![plugin-validate](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml/badge.svg)](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml)
