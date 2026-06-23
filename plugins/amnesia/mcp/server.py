@@ -338,6 +338,10 @@ TOOLS = [
                     "description": "Whether to search only the current project or all projects (default current_project).",
                     "default": "current_project",
                 },
+                "project": {
+                    "type": "string",
+                    "description": "Project slug override. Defaults to the current CLAUDE_PROJECT_DIR slug.",
+                },
             },
             "required": ["query"],
         },
