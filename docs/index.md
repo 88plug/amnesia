@@ -1,14 +1,11 @@
-<div align="center">
-
 # amnesia
 
 Context continuity for Claude Code — keep the agent's working state intact across every `/compact`, auto-compact, and resume.
 
 [![plugin-validate](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml/badge.svg)](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml)
-[![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue?style=flat)](LICENSE.md)
+[![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue?style=flat)](https://github.com/88plug/amnesia/blob/main/LICENSE.md)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2?style=flat)](https://github.com/88plug/claude-code-plugins)
-
-</div>
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/88plug/amnesia)
 
 ## Install
 
@@ -17,8 +14,8 @@ Context continuity for Claude Code — keep the agent's working state intact acr
 /plugin install amnesia@88plug
 ```
 
-> [!TIP]
-> That is the whole setup. After install, amnesia runs entirely in the background — no commands to run, no files to manage, no visible interruptions.
+!!! tip
+    That is the whole setup. After install, amnesia runs entirely in the background — no commands to run, no files to manage, no visible interruptions.
 
 ## Quickstart (under 60 seconds)
 
@@ -39,8 +36,8 @@ amnesia makes compaction non-destructive. It captures a structured handoff at ev
 - the user's most recent constraints, verbatim
 - the path to the on-disk JSONL transcript, which Claude Code never truncates, so any lost detail is recoverable for the cost of one `Read`
 
-> [!NOTE]
-> Recommended install is via the [88plug marketplace](https://github.com/88plug/claude-code-plugins). Installing directly from this repo also works but is less convenient and will not auto-update with curated releases.
+!!! note
+    Recommended install is via the [88plug marketplace](https://github.com/88plug/claude-code-plugins). Installing directly from this repo also works but is less convenient and will not auto-update with curated releases.
 
 ## How it works
 
@@ -108,15 +105,15 @@ amnesia also ships an MCP server exposing `recall` and `handoff_get` tools, so t
 
 ## Design rationale
 
-See [`DESIGN.md`](DESIGN.md) for the long-form rationale, the binary investigation that informed it, the empirical tests that corrected the v0.1.0 design, and citations into the Claude Code 2.1.150 source.
+See [`DESIGN.md`](https://github.com/88plug/amnesia/blob/main/DESIGN.md) for the long-form rationale, the binary investigation that informed it, the empirical tests that corrected the v0.1.0 design, and citations into the Claude Code 2.1.150 source.
 
 ## Contributing
 
-Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines, and [`CHANGELOG.md`](CHANGELOG.md) for release history.
+Contributions are welcome. See [`CONTRIBUTING.md`](https://github.com/88plug/amnesia/blob/main/CONTRIBUTING.md) for guidelines, and [`CHANGELOG.md`](https://github.com/88plug/amnesia/blob/main/CHANGELOG.md) for release history.
 
 ## License
 
-Licensed under the [Functional Source License, Version 1.1, ALv2 Future License](LICENSE.md) (`FSL-1.1-ALv2`).
+Licensed under the [Functional Source License, Version 1.1, ALv2 Future License](https://github.com/88plug/amnesia/blob/main/LICENSE.md) (`FSL-1.1-ALv2`).
 
 You may use, copy, modify, and redistribute it for any purpose except a Competing Use — offering this software (or a substantially similar substitute) as a commercial product or service. Each released version automatically converts to the Apache License 2.0 on the second anniversary of its release date.
 

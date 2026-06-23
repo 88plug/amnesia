@@ -1,5 +1,9 @@
 site_name: Amnesia
 site_description: Context continuity for Claude Code — keep the agent's working state intact across every compact, auto-compact, and resume.
+site_url: https://88plug.github.io/amnesia/
+repo_url: https://github.com/88plug/amnesia
+repo_name: 88plug/amnesia
+edit_uri: edit/main/docs/
 use_directory_urls: true
 
 theme:
@@ -26,6 +30,7 @@ theme:
 markdown_extensions:
   - admonition
   - attr_list
+  - md_in_html          # render markdown inside HTML blocks (<div>, <details>)
   - def_list
   - footnotes
   - tables
