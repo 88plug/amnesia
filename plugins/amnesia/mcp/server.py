@@ -313,6 +313,7 @@ TOOLS = [
     {
         "name": "recall",
         "title": "Recall",
+        "annotations": {"readOnlyHint": True},
         "description": (
             "Search amnesia's stored handoffs and archived working-state for a specific past detail "
             "(file you read earlier, exact error message, decision made). Use when the user references "
@@ -344,6 +345,7 @@ TOOLS = [
     {
         "name": "handoff_get",
         "title": "Get Handoff",
+        "annotations": {"readOnlyHint": True},
         "description": (
             "Fetch the full markdown of a saved handoff by session_id (or the current handoff if none given). "
             "Use when you need the FULL context (not just a search snippet) for a prior session."
