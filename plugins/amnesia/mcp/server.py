@@ -24,7 +24,7 @@ from typing import Any, Dict, Iterator, List, Optional
 # Constants
 # ---------------------------------------------------------------------------
 
-PROTOCOL_VERSION = "2024-11-05"
+PROTOCOL_VERSION = "2025-11-25"
 SERVER_NAME = "amnesia"
 SERVER_VERSION = "0.3.2"
 
@@ -312,6 +312,7 @@ def tool_handoff_get(
 TOOLS = [
     {
         "name": "recall",
+        "title": "Recall",
         "description": (
             "Search amnesia's stored handoffs and archived working-state for a specific past detail "
             "(file you read earlier, exact error message, decision made). Use when the user references "
@@ -342,6 +343,7 @@ TOOLS = [
     },
     {
         "name": "handoff_get",
+        "title": "Get Handoff",
         "description": (
             "Fetch the full markdown of a saved handoff by session_id (or the current handoff if none given). "
             "Use when you need the FULL context (not just a search snippet) for a prior session."
