@@ -130,15 +130,24 @@ def _mcp_servers():
                 pass
     return servers
 
-PATH_FRAGILE = {"uv", "uvx", "npx", "bunx", "pnpm", "yarn", "deno", "bun", "node", "pipx"}
+# Bare interpreter names fail under Claude's thin MCP/hook PATH (Homebrew at
+# /opt/homebrew/bin, pyenv, Windows without python3). Always use scripts/ under
+# ${CLAUDE_PLUGIN_ROOT} that resolve the binary (see scripts/run-python.sh).
+PATH_FRAGILE = {
+    "uv", "uvx", "npx", "bunx", "pnpm", "yarn", "deno", "bun", "node", "pipx",
+    "python", "python3", "python3.10", "python3.11", "python3.12", "python3.13",
+}
 for key, spec in _mcp_servers().items():
     if not isinstance(spec, dict):
         continue
     cmd = (spec.get("command") or "").strip()
-    if cmd in PATH_FRAGILE:
-        warn(f".mcp[{key}]: command '{cmd}' is a bare tool name — PATH-fragile (it usually "
-             f"lives off Claude's MCP-spawn PATH, e.g. ~/.local/bin → silent 'Failed to "
-             f"connect'). Use a launcher script under ${{CLAUDE_PLUGIN_ROOT}} that resolves it.")
+    # Strip versioned python3.X that might appear as the whole command
+    cmd_base = cmd.split("/")[-1] if cmd else ""
+    if cmd in PATH_FRAGILE or re.fullmatch(r"python3(\.\d+)?", cmd_base or ""):
+        err(f".mcp[{key}]: command '{cmd}' is a bare interpreter/tool name — PATH-fragile "
+            f"(Claude's MCP-spawn PATH often omits Homebrew/pyenv → silent 'Failed to "
+            f"connect'). Use bash + ${{CLAUDE_PLUGIN_ROOT}}/scripts/mcp-server.sh (or "
+            f"run-python.sh) instead.")
     url = spec.get("url") or ""
     if url and spec.get("type", "") in ("http", "sse", "streamable-http") and shutil.which("curl"):
         r = subprocess.run(["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-m", "12", url],

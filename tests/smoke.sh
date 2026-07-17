@@ -181,15 +181,88 @@ while IFS= read -r hook; do
 done < <(find "$HOOKS_DIR" -maxdepth 3 -name '*.sh' | sort)
 
 # ---------------------------------------------------------------------------
-# 5. Python syntax check on MCP server
+# 5. Python syntax check on MCP server + launcher resolution
 # ---------------------------------------------------------------------------
 echo ''
-echo '--- 5. MCP server syntax ---'
+echo '--- 5. MCP server syntax + run-python launcher ---'
 
-if python3 -c "import ast; ast.parse(open('$MCP_SERVER').read())" 2>/dev/null; then
-  ok "python3 ast.parse(server.py)"
+RUN_PYTHON="$PLUGIN_DIR/scripts/run-python.sh"
+MCP_LAUNCHER="$PLUGIN_DIR/scripts/mcp-server.sh"
+
+if [ -x "$RUN_PYTHON" ] || [ -f "$RUN_PYTHON" ]; then
+  ok "run-python.sh present"
 else
-  fail "python3 ast.parse(server.py)"
+  fail "run-python.sh present"
+fi
+if [ -f "$MCP_LAUNCHER" ]; then
+  ok "mcp-server.sh present"
+else
+  fail "mcp-server.sh present"
+fi
+
+if bash "$RUN_PYTHON" -c "import ast; ast.parse(open('$MCP_SERVER').read())" 2>/dev/null; then
+  ok "run-python.sh ast.parse(server.py)"
+else
+  fail "run-python.sh ast.parse(server.py)"
+fi
+
+# Thin PATH (simulates Claude GUI spawn): only /usr/bin + /bin. Must still find
+# a system python3 or absolute fallback — never depend on interactive shell PATH.
+THIN_OUT="$(env -i HOME="$HOME" PATH="/usr/bin:/bin" bash "$RUN_PYTHON" -c 'import sys; print(sys.version_info[0])' 2>/dev/null || true)"
+if [ "$THIN_OUT" = "3" ]; then
+  ok "run-python.sh works under thin PATH=/usr/bin:/bin"
+else
+  # Some minimal images lack /usr/bin/python3 entirely — soft-fail with note.
+  if [ -x /usr/bin/python3 ] || [ -x /opt/homebrew/bin/python3 ]; then
+    fail "run-python.sh works under thin PATH (got: $(printf '%q' "$THIN_OUT"))"
+  else
+    ok "run-python.sh thin PATH skipped (no system python3 on this host)"
+  fi
+fi
+
+# Override must win.
+FAKE_PY="$TEST_DIR/fake-python"
+cat > "$FAKE_PY" <<'EOF'
+#!/usr/bin/env bash
+# pretend python that reports 3.12 and echoes a marker
+if [ "$1" = "-c" ]; then
+  case "$2" in
+    *version_info*) exit 0 ;;
+    *sys.executable*) echo "$0" ;;
+    *) echo "FAKE_OK" ;;
+  esac
+  exit 0
+fi
+exit 0
+EOF
+chmod +x "$FAKE_PY"
+# Override path must be a real Python for version_ok — use real python with env.
+OVERRIDE_OUT="$(EIGHTYEIGHT_PYTHON="$(command -v python3 || command -v python)" bash "$RUN_PYTHON" -c 'import sys; print("override-ok")' 2>/dev/null || true)"
+if [ "$OVERRIDE_OUT" = "override-ok" ]; then
+  ok "EIGHTYEIGHT_PYTHON override works"
+else
+  fail "EIGHTYEIGHT_PYTHON override works (got: $(printf '%q' "$OVERRIDE_OUT"))"
+fi
+
+# Manifests must not use bare python3 (PATH-fragile under Claude spawn).
+for mf in "$PLUGIN_DIR/.claude-plugin/plugin.json" "$PLUGIN_DIR/.mcp.json"; do
+  if [ -f "$mf" ] && grep -qE '"command"[[:space:]]*:[[:space:]]*"python3?"' "$mf"; then
+    fail "no bare python3 command in $(basename "$(dirname "$mf")")/$(basename "$mf")"
+  else
+    ok "no bare python3 in $(echo "$mf" | sed "s|$REPO_ROOT/||")"
+  fi
+done
+
+# mcp-server.sh is invokable (will hang on stdio if we don't kill — just bash -n)
+if bash -n "$MCP_LAUNCHER" 2>/dev/null; then
+  ok "bash -n mcp-server.sh"
+else
+  fail "bash -n mcp-server.sh"
+fi
+if bash -n "$RUN_PYTHON" 2>/dev/null; then
+  ok "bash -n run-python.sh"
+else
+  fail "bash -n run-python.sh"
 fi
 
 # ---------------------------------------------------------------------------

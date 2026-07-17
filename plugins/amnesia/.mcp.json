@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "amnesia": {
-      "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.py"]
+      "command": "bash",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-server.sh"]
     }
   }
 }

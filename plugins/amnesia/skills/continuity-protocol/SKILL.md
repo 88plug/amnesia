@@ -52,10 +52,13 @@ read earlier, the precise error message you saw, a specific decision the user
 made — `Read` the transcript directly. You can also use the amnesia walker:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lib/jsonl_walker.py tail <transcript> -n 20
-python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lib/jsonl_walker.py tail <transcript> -n 5 --role user --after-compact
-python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lib/jsonl_walker.py files <transcript>
-python3 ${CLAUDE_PLUGIN_ROOT}/hooks/lib/jsonl_walker.py summary <transcript>
+# Use run-python.sh (not bare python3) — Claude's PATH often lacks Homebrew/pyenv.
+PY="${CLAUDE_PLUGIN_ROOT}/scripts/run-python.sh"
+W="${CLAUDE_PLUGIN_ROOT}/hooks/lib/jsonl_walker.py"
+bash "$PY" "$W" tail <transcript> -n 20
+bash "$PY" "$W" tail <transcript> -n 5 --role user --after-compact
+bash "$PY" "$W" files <transcript>
+bash "$PY" "$W" summary <transcript>
 ```
 
 Don't re-derive lost work when you can recover it for the cost of one file read.

@@ -8,7 +8,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 amnesia::read_input
 
 amnesia::has_jq || { amnesia::log warn "jq missing; L1 skipped"; exit 0; }
-amnesia::has_py || { amnesia::log warn "python3 missing; L1 degraded"; }
+amnesia::has_py || { amnesia::log warn "Python >=3.10 missing; L1 degraded"; }
 
 STATE_DIR="$(amnesia::ensure_state)"
 ACTIVE="$STATE_DIR/handoff/active.md"
@@ -66,12 +66,12 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ] && amnesia::has_py; then
     AUGMENTED_TRANSCRIPT="$(mktemp /tmp/amnesia-augmented.XXXXXX.jsonl)"
     printf '%s\n' "$SIDECAR_LINES" > "$AUGMENTED_TRANSCRIPT"
     cat "$TRANSCRIPT" >> "$AUGMENTED_TRANSCRIPT"
-    TOUCHED_JSON="$(python3 "$WALKER" files "$AUGMENTED_TRANSCRIPT" 2>/dev/null || echo '{}')"
-    LAST_USER_JSON="$(python3 "$WALKER" tail "$AUGMENTED_TRANSCRIPT" -n 3 --role user --max-chars 800 2>/dev/null || echo '[]')"
+    TOUCHED_JSON="$(amnesia::py "$WALKER" files "$AUGMENTED_TRANSCRIPT" 2>/dev/null || echo '{}')"
+    LAST_USER_JSON="$(amnesia::py "$WALKER" tail "$AUGMENTED_TRANSCRIPT" -n 3 --role user --max-chars 800 2>/dev/null || echo '[]')"
     rm -f "$AUGMENTED_TRANSCRIPT"
   else
-    TOUCHED_JSON="$(python3 "$WALKER" files "$TRANSCRIPT" 2>/dev/null || echo '{}')"
-    LAST_USER_JSON="$(python3 "$WALKER" tail "$TRANSCRIPT" -n 3 --role user --max-chars 800 2>/dev/null || echo '[]')"
+    TOUCHED_JSON="$(amnesia::py "$WALKER" files "$TRANSCRIPT" 2>/dev/null || echo '{}')"
+    LAST_USER_JSON="$(amnesia::py "$WALKER" tail "$TRANSCRIPT" -n 3 --role user --max-chars 800 2>/dev/null || echo '[]')"
   fi
 fi
 

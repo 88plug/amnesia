@@ -1,6 +1,6 @@
 ---
 description: Recall detail the current handoff doesn't cover by reading the on-disk JSONL transcript. Use when context feels thin or a specific past detail is missing.
-allowed-tools: Bash(ls:*), Bash(grep:*), Bash(tail:*), Bash(head:*), Bash(jq:*), Bash(python3:*), Bash(find:*), Bash(printf:*), Bash(sed:*), Bash(source:*), Bash(dirname:*), Read, Grep
+allowed-tools: Bash(ls:*), Bash(grep:*), Bash(tail:*), Bash(head:*), Bash(jq:*), Bash(python3:*), Bash(bash:*), Bash(find:*), Bash(printf:*), Bash(sed:*), Bash(source:*), Bash(dirname:*), Read, Grep
 argument-hint: "<topic, file, command, or 'last <N> turns'>"
 ---
 
@@ -44,12 +44,16 @@ full transcript fidelity.
    printf 'Walker at: %s\n' "$WALKER"
    ``
 
+   Prefer the plugin Python resolver (works when bare `python3` is off PATH):
+
+   `PY="${CLAUDE_PLUGIN_ROOT}/scripts/run-python.sh"`
+
    Subcommands:
-   - `python3 <walker> tail <transcript> -n 20` → last 20 turns as JSON
-   - `python3 <walker> tail <transcript> -n 5 --role user` → last 5 user messages
-   - `python3 <walker> tail <transcript> --after-compact` → only turns since last compaction
-   - `python3 <walker> files <transcript>` → file paths touched, with ops
-   - `python3 <walker> summary <transcript>` → most recent compact summary text
+   - `bash "$PY" <walker> tail <transcript> -n 20` → last 20 turns as JSON
+   - `bash "$PY" <walker> tail <transcript> -n 5 --role user` → last 5 user messages
+   - `bash "$PY" <walker> tail <transcript> --after-compact` → only turns since last compaction
+   - `bash "$PY" <walker> files <transcript>` → file paths touched, with ops
+   - `bash "$PY" <walker> summary <transcript>` → most recent compact summary text
 
 3. **For free-text queries**, fall back to `grep` on the JSONL — every message,
    tool input, and tool output is a single JSON line.

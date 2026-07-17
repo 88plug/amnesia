@@ -8,6 +8,15 @@ Versions correspond to the `version` field in `plugins/amnesia/plugin.json`.
 
 ## [Unreleased]
 
+### Fixed — Python launch under thin PATH
+
+- MCP no longer uses bare `"command": "python3"` (fails when Claude's spawn
+  PATH omits Homebrew/pyenv). Launches via `scripts/mcp-server.sh` →
+  `scripts/run-python.sh` (env override → venv → PATH → absolute fallbacks,
+  floor ≥3.10).
+- Hooks use `amnesia::py` / `amnesia::has_py` through the same resolver.
+- CI rejects bare `python*` in mcpServers; smoke covers thin PATH + override.
+
 ### Changed — license
 
 - **Relicensed from MIT to `FSL-1.1-ALv2`** (Functional Source License,

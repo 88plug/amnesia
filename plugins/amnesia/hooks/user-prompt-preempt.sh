@@ -54,7 +54,7 @@ TRANSCRIPT="$(amnesia::field transcript_path)"
 THRESHOLD_BYTES="${AMNESIA_PREEMPT_THRESHOLD_BYTES:-2000000}"  # ~2MB ≈ ~75% of 200K-token window
 
 WALKER="$(dirname "${BASH_SOURCE[0]}")/lib/jsonl_walker.py"
-BOUNDARY_LINE="$(python3 -c "
+BOUNDARY_LINE="$(amnesia::py -c "
 import sys; sys.path.insert(0, '$(dirname "$WALKER")')
 import jsonl_walker as w
 b = w.last_compact_boundary_offset('$TRANSCRIPT')

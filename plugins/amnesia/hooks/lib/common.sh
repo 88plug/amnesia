@@ -126,8 +126,48 @@ amnesia::field() {
 }
 
 amnesia::has_jq() { command -v jq >/dev/null 2>&1; }
-amnesia::has_py() { command -v python3 >/dev/null 2>&1; }
 amnesia::has_flock() { command -v flock >/dev/null 2>&1; }
+
+# --- Python resolution (never bare `python3` in hooks) ---------------------
+# Claude's hook/MCP spawn PATH is thin. All Python work goes through
+# scripts/run-python.sh (env override → venv → PATH → abs Homebrew/system).
+amnesia::_plugin_root() {
+  if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+    printf '%s' "$CLAUDE_PLUGIN_ROOT"
+  else
+    # common.sh lives at $PLUGIN_ROOT/hooks/lib/common.sh
+    cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd
+  fi
+}
+
+amnesia::_run_python_sh() {
+  local root runner
+  root="$(amnesia::_plugin_root)"
+  runner="${root}/scripts/run-python.sh"
+  if [ -f "$runner" ]; then
+    printf '%s' "$runner"
+    return 0
+  fi
+  return 1
+}
+
+# True if a usable Python ≥3.10 can be resolved (including Homebrew abs paths).
+amnesia::has_py() {
+  local runner
+  runner="$(amnesia::_run_python_sh)" || return 1
+  bash "$runner" -c 'import sys' >/dev/null 2>&1
+}
+
+# Run Python with the resolved interpreter. Usage: amnesia::py script.py args...
+# or amnesia::py -c 'code'. Returns the interpreter's exit status.
+amnesia::py() {
+  local runner
+  runner="$(amnesia::_run_python_sh)" || {
+    amnesia::log warn "run-python.sh missing; cannot invoke Python"
+    return 1
+  }
+  bash "$runner" "$@"
+}
 
 # === v0.3.0 helpers ===
 
