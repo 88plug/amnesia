@@ -52,7 +52,7 @@ fi
 # preceding the compact boundary are still on disk.
 #
 # If the sidecar exists, prepend it so the walker sees a richer stream.
-WALKER="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "${BASH_SOURCE[0]}")")/..}/hooks/lib/jsonl_walker.py"
+WALKER="$(amnesia::_plugin_root)/hooks/lib/jsonl_walker.py"
 TOUCHED_JSON="{}"
 LAST_USER_JSON="[]"
 TRANSCRIPT_LINES=0
