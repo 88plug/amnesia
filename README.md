@@ -7,7 +7,7 @@
 Context continuity for Claude Code — keep the agent's working state intact across every `/compact`, auto-compact, and resume.
 
 [![plugin-validate](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml/badge.svg)](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml)
-[![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue?style=flat)](LICENSE.md)
+[![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue?style=flat)](LICENSE)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2?style=flat)](https://github.com/88plug/claude-code-plugins)
 [![Docs](https://img.shields.io/badge/docs-online-2ea44f?style=flat)](https://88plug.github.io/amnesia/)
 
@@ -164,7 +164,7 @@ Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelin
 
 ## License
 
-Licensed under the [Functional Source License, Version 1.1, ALv2 Future License](LICENSE.md) (`FSL-1.1-ALv2`).
+Licensed under the [Functional Source License, Version 1.1, ALv2 Future License](LICENSE) (`FSL-1.1-ALv2`).
 
 You may use, copy, modify, and redistribute it for any purpose except a Competing Use — offering this software (or a substantially similar substitute) as a commercial product or service. Each released version automatically converts to the Apache License 2.0 on the second anniversary of its release date.
 

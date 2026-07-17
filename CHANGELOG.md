@@ -31,8 +31,8 @@ Versions correspond to the `version` field in `.claude-plugin/plugin.json`.
   offering amnesia (or a substantially similar substitute) as a commercial
   product or service — is no longer a Permitted Purpose. Each released version
   automatically converts to the Apache License 2.0 on the second anniversary of
-  its release date. See [`LICENSE.md`](./LICENSE.md) for the full terms.
-- `LICENSE` (MIT) removed in favor of `LICENSE.md` (FSL-1.1-ALv2).
+  its release date. See [`LICENSE`](./LICENSE) for the full terms.
+- `LICENSE` (MIT) removed in favor of `LICENSE` (FSL-1.1-ALv2).
 - `.claude-plugin/plugin.json` license updated to `FSL-1.1-ALv2`.
 
 ---
