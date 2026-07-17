@@ -2,7 +2,7 @@
 
 This document explains *why* amnesia is shaped the way it is. The findings
 below were extracted from the installed Claude Code 2.1.150 bundle at
-`/home/andrew/.local/share/claude/versions/2.1.150` plus the official docs at
+`$HOME/.local/share/claude/versions/<ver>` plus the official docs at
 `code.claude.com/docs`. Where the bundle and the docs disagreed, the bundle
 won.
 
@@ -281,7 +281,7 @@ ground truth.** No other tool we surveyed does all three.
 
 ## 6. Files & ground-truth references
 
-- Claude Code 2.1.150 binary (ELF, ~238MB): `/home/andrew/.local/share/claude/versions/2.1.150`
+- Claude Code 2.1.150 binary (ELF, ~238MB): `$HOME/.local/share/claude/versions/<ver>`
 - Full summarization prompt: byte offset `131710721` (and `231028532`) — extracted verbatim
 - Post-compact prelude builder (`L0$`): byte offset ~`231034000`
 - Threshold math (`Cf4`/`v0$`/`Wf4`): byte offsets `231087709`–`231101800`
