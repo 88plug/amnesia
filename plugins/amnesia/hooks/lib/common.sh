@@ -86,6 +86,7 @@ amnesia::state_dir() {
 # Back-compat: AMNESIA_ROOT still exposed for any downstream caller that
 # reads it directly. Resolves to the directory containing projects/.
 AMNESIA_ROOT="$(dirname "$(dirname "$(amnesia::state_dir)")")"
+export AMNESIA_ROOT
 
 amnesia::ensure_state() {
   local d; d="$(amnesia::state_dir)"
