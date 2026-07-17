@@ -157,7 +157,8 @@ def main():
                     fail(f"tool '{tool['name']}': inputSchema present")
 
     finally:
-        proc.stdin.close()
+        if proc.stdin is not None:
+            proc.stdin.close()
         proc.wait(timeout=5)
 
     print(f"\n=== Results: {PASS} passed, {FAIL} failed ===")

@@ -1,0 +1,13 @@
+{
+  "include": ["plugins/amnesia", "tests", ".ci"],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "node_modules",
+    "site",
+    ".ruff_cache",
+    ".git"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic"
+}
