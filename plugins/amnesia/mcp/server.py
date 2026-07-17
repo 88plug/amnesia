@@ -318,7 +318,7 @@ TOOLS = [
             "Search amnesia's stored handoffs and archived working-state for a specific past detail "
             "(file you read earlier, exact error message, decision made). Use when the user references "
             "prior work you don't have in context, OR when the current handoff doesn't cover something "
-            "specific you need."
+            "specific you need. Returns ranked matches with path, snippet, and project_slug."
         ),
         "inputSchema": {
             "type": "object",
@@ -352,7 +352,8 @@ TOOLS = [
         "annotations": {"readOnlyHint": True},
         "description": (
             "Fetch the full markdown of a saved handoff by session_id (or the current handoff if none given). "
-            "Use when you need the FULL context (not just a search snippet) for a prior session."
+            "Use when you need the FULL context (not just a search snippet) for a prior session. "
+            "Returns {path, content, mtime, project_slug} or an error envelope if none exists."
         ),
         "inputSchema": {
             "type": "object",
