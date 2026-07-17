@@ -15,9 +15,8 @@ import json
 import os
 import re
 import sys
-import time
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +36,7 @@ SNIPPET_CONTEXT_CHARS = 500
 # ---------------------------------------------------------------------------
 # Path resolution helpers
 # ---------------------------------------------------------------------------
+
 
 def _data_roots() -> List[Path]:
     """Return all amnesia plugin data roots that exist."""
@@ -80,6 +80,7 @@ def _project_dirs(scope: str, project: Optional[str] = None) -> List[Path]:
 # Search / grep helpers
 # ---------------------------------------------------------------------------
 
+
 def _snippet(text: str, query: str, context: int = SNIPPET_CONTEXT_CHARS) -> str:
     """Return a context window around the first case-insensitive match."""
     idx = text.lower().find(query.lower())
@@ -104,13 +105,15 @@ def _grep_text(
         if q_lower in line.lower():
             # Build a snippet: the line itself, capped
             snip = line[:MAX_SNIPPET_CHARS]
-            results.append({
-                "path": str(path),
-                "line_number": lineno,
-                "snippet": snip,
-                "project_slug": project_slug,
-                "mtime": mtime,
-            })
+            results.append(
+                {
+                    "path": str(path),
+                    "line_number": lineno,
+                    "snippet": snip,
+                    "project_slug": project_slug,
+                    "mtime": mtime,
+                }
+            )
     return results
 
 
@@ -144,6 +147,7 @@ def _mtime(path: Path) -> float:
 # Tool implementations
 # ---------------------------------------------------------------------------
 
+
 def tool_recall(
     query: str,
     max_results: int = 10,
@@ -158,7 +162,11 @@ def tool_recall(
 
     project_dirs = _project_dirs(scope, project)
     if not project_dirs:
-        return {"results": [], "searched": [], "note": "No amnesia data directories found."}
+        return {
+            "results": [],
+            "searched": [],
+            "note": "No amnesia data directories found.",
+        }
 
     all_hits: List[Dict[str, Any]] = []
     searched: List[str] = []
@@ -188,7 +196,9 @@ def tool_recall(
         # 3. logs/archive/*.jsonl.gz
         logs_dir = proj_dir / "logs" / "archive"
         if logs_dir.exists():
-            for gz_file in sorted(logs_dir.glob("*.jsonl.gz"), key=_mtime, reverse=True):
+            for gz_file in sorted(
+                logs_dir.glob("*.jsonl.gz"), key=_mtime, reverse=True
+            ):
                 searched.append(str(gz_file))
                 content = _read_gz(gz_file)
                 if content:
@@ -201,7 +211,9 @@ def tool_recall(
             searched.append(str(sessions_json))
             content = _read_file(sessions_json)
             if content:
-                hits = _grep_text(content, query, sessions_json, slug, _mtime(sessions_json))
+                hits = _grep_text(
+                    content, query, sessions_json, slug, _mtime(sessions_json)
+                )
                 all_hits.extend(hits)
 
     # Sort by recency descending, cap
@@ -259,7 +271,9 @@ def tool_handoff_get(
                         try:
                             sessions = json.loads(raw)
                             for entry in sessions if isinstance(sessions, list) else []:
-                                if isinstance(entry, dict) and session_id in str(entry.get("session_id", "")):
+                                if isinstance(entry, dict) and session_id in str(
+                                    entry.get("session_id", "")
+                                ):
                                     fname = entry.get("handoff_file", "")
                                     if fname:
                                         candidate = archive_dir / Path(fname).name
@@ -273,17 +287,19 @@ def tool_handoff_get(
                 content = _read_file(target)
                 if content:
                     if len(content) > MAX_HANDOFF_CHARS:
-                        content = content[:MAX_HANDOFF_CHARS] + "\n\n[truncated at 64KB]"
+                        content = (
+                            content[:MAX_HANDOFF_CHARS] + "\n\n[truncated at 64KB]"
+                        )
                     return {
                         "path": str(target),
                         "content": content,
                         "mtime": _mtime(target),
                         "project_slug": resolved_slug,
                     }
-            return {
-                "error": f"No handoff found for session_id={session_id!r}",
-                "content": None,
-            }
+        return {
+            "error": f"No handoff found for session_id={session_id!r}",
+            "content": None,
+        }
     else:
         # Return active handoff
         active_md = proj_dir / "handoff" / "active.md"
@@ -426,11 +442,14 @@ def _handle(msg: Dict[str, Any]) -> None:
     params = msg.get("params") or {}
 
     if method == "initialize":
-        _send_response(req_id, {
-            "protocolVersion": PROTOCOL_VERSION,
-            "capabilities": {"tools": {}},
-            "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-        })
+        _send_response(
+            req_id,
+            {
+                "protocolVersion": PROTOCOL_VERSION,
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+            },
+        )
 
     elif method == "notifications/initialized":
         # No response required for notifications
