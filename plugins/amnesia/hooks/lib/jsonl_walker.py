@@ -16,7 +16,7 @@ import json
 import os
 import sys
 from collections import deque
-from typing import Dict, Iterator, List, Optional
+from typing import Dict, Iterator, List, Optional  # noqa: F401  # used in type comments
 
 
 def iter_lines(path):
@@ -67,7 +67,9 @@ def extract_text(content):
                 parts.append("[tool_use:{}]".format(name))
             elif btype == "tool_result":
                 inner = block.get("content", "")
-                parts.append(extract_text(inner) if not isinstance(inner, str) else inner)
+                parts.append(
+                    extract_text(inner) if not isinstance(inner, str) else inner
+                )
             elif btype == "thinking":
                 continue
         return "\n".join(p for p in parts if p)
@@ -192,7 +194,9 @@ def cmd_tail(args):
         kinds = set(args.kinds.split(","))
     elif args.role == "user":
         kinds = {"prose"}
-    turns = last_n_turns(args.path, args.n, role=args.role, after_line=start, kinds=kinds)
+    turns = last_n_turns(
+        args.path, args.n, role=args.role, after_line=start, kinds=kinds
+    )
     out = [
         {
             "role": t["role"],
@@ -238,11 +242,16 @@ def main():
     pt.add_argument("-n", type=int, default=10)
     pt.add_argument("--role", choices=["user", "assistant"], default=None)
     pt.add_argument("--max-chars", type=int, default=2000)
-    pt.add_argument("--after-compact", action="store_true",
-                    help="only turns after most recent compact_boundary")
-    pt.add_argument("--kinds",
-                    help="comma-separated kinds to keep: prose,tool_result,mixed,empty "
-                         "(default: prose only when --role user, else all)")
+    pt.add_argument(
+        "--after-compact",
+        action="store_true",
+        help="only turns after most recent compact_boundary",
+    )
+    pt.add_argument(
+        "--kinds",
+        help="comma-separated kinds to keep: prose,tool_result,mixed,empty "
+        "(default: prose only when --role user, else all)",
+    )
     pt.set_defaults(func=cmd_tail)
 
     pf = sub.add_parser("files", help="files touched (from tool_use inputs)")

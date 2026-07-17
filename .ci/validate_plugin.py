@@ -7,8 +7,14 @@ softer portability/hygiene issues are warnings.
 usage: validate_plugin.py [PLUGIN_ROOT]   (default ".")
 exit 0 = clean, 1 = errors found.
 """
+
 from __future__ import annotations
-import sys, os, re, json, shutil, subprocess
+import sys
+import os
+import re
+import json
+import shutil
+import subprocess
 from pathlib import Path
 
 try:
@@ -21,13 +27,19 @@ errors: list[str] = []
 warns: list[str] = []
 
 
-def err(m): errors.append(m)
-def warn(m): warns.append(m)
+def err(m):
+    errors.append(m)
+
+
+def warn(m):
+    warns.append(m)
 
 
 def rel(p):
-    try: return str(Path(p).relative_to(ROOT))
-    except Exception: return str(p)
+    try:
+        return str(Path(p).relative_to(ROOT))
+    except Exception:
+        return str(p)
 
 
 # --- 1. plugin.json: valid JSON + has a name ---------------------------------
@@ -45,13 +57,16 @@ else:
 # --- 2. bash default-form var in a MANIFEST (Claude Code does not substitute it)
 # Only manifests are variable-substituted; the ${VAR:-default} form inside a .sh
 # script is legitimate, so scope this to the JSON manifests only.
-BAD = re.compile(r'\$\{CLAUDE_PLUGIN_(?:ROOT|DATA):-')
+BAD = re.compile(r"\$\{CLAUDE_PLUGIN_(?:ROOT|DATA):-")
 manifests = [man, ROOT / ".mcp.json", ROOT / "hooks" / "hooks.json"]
 for p in manifests:
     if p.exists():
         if BAD.search(p.read_text()):
-            err(f"{rel(p)}: uses ${{CLAUDE_PLUGIN_*:-default}} — Claude Code substitutes "
-                f"only the plain ${{CLAUDE_PLUGIN_ROOT}} form; the :- default is left literal")
+            err(
+                f"{rel(p)}: uses ${{CLAUDE_PLUGIN_*:-default}} — Claude Code substitutes "
+                f"only the plain ${{CLAUDE_PLUGIN_ROOT}} form; the :- default is left literal"
+            )
+
 
 # --- 3. skill/command/agent frontmatter must parse (the ': ' YAML break) ------
 # Skills & agents REQUIRE name+description (that pair is the trigger surface, and
@@ -69,18 +84,23 @@ def _frontmatter(md):
     try:
         d = yaml.safe_load(parts[1])
     except Exception as e:
-        return None, (f"frontmatter YAML parse error ({e.__class__.__name__}) — "
-                      "often an unquoted description containing ': '")
+        return None, (
+            f"frontmatter YAML parse error ({e.__class__.__name__}) — "
+            "often an unquoted description containing ': '"
+        )
     if not isinstance(d, dict):
         return None, "frontmatter is not a mapping"
     return d, None
+
 
 for md in list(ROOT.glob("skills/**/SKILL.md")) + list(ROOT.glob("agents/**/*.md")):
     d, e = _frontmatter(md)
     if e:
         err(f"{rel(md)}: {e}")
     elif not d.get("name") or not d.get("description"):
-        err(f"{rel(md)}: frontmatter missing name/description (silently dropped by a ': ' break?)")
+        err(
+            f"{rel(md)}: frontmatter missing name/description (silently dropped by a ': ' break?)"
+        )
 
 for md in list(ROOT.glob("commands/**/*.md")):
     d, e = _frontmatter(md)
@@ -109,10 +129,13 @@ for sh in sorted(set(ROOT.glob("hooks/**/*.sh")) | set(ROOT.glob("scripts/**/*.s
         r = subprocess.run(["zsh", "-n", str(sh)], capture_output=True, text=True)
         if r.returncode != 0:
             tail = (r.stderr.strip().splitlines() or ["parse error"])[-1]
-            warn(f"{rel(sh)}: not zsh-parseable — {tail} "
-                 "(breaks if a slash command sources it in a zsh user shell)")
+            warn(
+                f"{rel(sh)}: not zsh-parseable — {tail} "
+                "(breaks if a slash command sources it in a zsh user shell)"
+            )
     if "hooks" in sh.parts and not os.access(sh, os.X_OK):
         warn(f"{rel(sh)}: missing executable bit (test -x fails)")
+
 
 # --- 6. MCP servers: dead http/sse endpoints + bare PATH-fragile commands ----
 # deepwiki shipped a dead /sse endpoint (410). total-recall/searxng shipped a bare
@@ -130,12 +153,27 @@ def _mcp_servers():
                 pass
     return servers
 
+
 # Bare interpreter names fail under Claude's thin MCP/hook PATH (Homebrew at
 # /opt/homebrew/bin, pyenv, Windows without python3). Always use scripts/ under
 # ${CLAUDE_PLUGIN_ROOT} that resolve the binary (see scripts/run-python.sh).
 PATH_FRAGILE = {
-    "uv", "uvx", "npx", "bunx", "pnpm", "yarn", "deno", "bun", "node", "pipx",
-    "python", "python3", "python3.10", "python3.11", "python3.12", "python3.13",
+    "uv",
+    "uvx",
+    "npx",
+    "bunx",
+    "pnpm",
+    "yarn",
+    "deno",
+    "bun",
+    "node",
+    "pipx",
+    "python",
+    "python3",
+    "python3.10",
+    "python3.11",
+    "python3.12",
+    "python3.13",
 }
 for key, spec in _mcp_servers().items():
     if not isinstance(spec, dict):
@@ -144,25 +182,49 @@ for key, spec in _mcp_servers().items():
     # Strip versioned python3.X that might appear as the whole command
     cmd_base = cmd.split("/")[-1] if cmd else ""
     if cmd in PATH_FRAGILE or re.fullmatch(r"python3(\.\d+)?", cmd_base or ""):
-        err(f".mcp[{key}]: command '{cmd}' is a bare interpreter/tool name — PATH-fragile "
+        err(
+            f".mcp[{key}]: command '{cmd}' is a bare interpreter/tool name — PATH-fragile "
             f"(Claude's MCP-spawn PATH often omits Homebrew/pyenv → silent 'Failed to "
             f"connect'). Use bash + ${{CLAUDE_PLUGIN_ROOT}}/scripts/mcp-server.sh (or "
-            f"run-python.sh) instead.")
+            f"run-python.sh) instead."
+        )
     url = spec.get("url") or ""
-    if url and spec.get("type", "") in ("http", "sse", "streamable-http") and shutil.which("curl"):
-        r = subprocess.run(["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-m", "12", url],
-                           capture_output=True, text=True)
+    if (
+        url
+        and spec.get("type", "") in ("http", "sse", "streamable-http")
+        and shutil.which("curl")
+    ):
+        r = subprocess.run(
+            ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-m", "12", url],
+            capture_output=True,
+            text=True,
+        )
         code = (r.stdout or "").strip()
         if r.returncode != 0:
-            warn(f".mcp[{key}]: endpoint {url} unreachable (curl exit {r.returncode}) — verify it is live")
+            warn(
+                f".mcp[{key}]: endpoint {url} unreachable (curl exit {r.returncode}) — verify it is live"
+            )
         elif code in ("404", "410"):
-            warn(f".mcp[{key}]: endpoint {url} returned HTTP {code} (gone/not-found) — likely dead/moved")
+            warn(
+                f".mcp[{key}]: endpoint {url} returned HTTP {code} (gone/not-found) — likely dead/moved"
+            )
 
 # --- 7. agents that reference a tool in their body but don't grant it ---------
 # amnesia's summarizer told the model to "Write … via the `Write` tool" while its
 # frontmatter tools list omitted Write, so the handoff silently never persisted.
-KNOWN_TOOLS = ("Write", "Edit", "MultiEdit", "Read", "Bash", "Grep", "Glob",
-               "Task", "WebFetch", "WebSearch", "NotebookEdit")
+KNOWN_TOOLS = (
+    "Write",
+    "Edit",
+    "MultiEdit",
+    "Read",
+    "Bash",
+    "Grep",
+    "Glob",
+    "Task",
+    "WebFetch",
+    "WebSearch",
+    "NotebookEdit",
+)
 for md in ROOT.glob("agents/**/*.md"):
     d, e = _frontmatter(md)
     if e or not isinstance(d, dict):
@@ -178,8 +240,13 @@ for md in ROOT.glob("agents/**/*.md"):
     for tool in KNOWN_TOOLS:
         if tool in granted:
             continue
-        if re.search(rf'(`{tool}`\s*tool|\bthe\s+{tool}\s+tool|\bvia\s+(?:the\s+)?{tool}\b)', body):
-            warn(f"{rel(md)}: body uses the {tool} tool but frontmatter 'tools' doesn't grant it (silent-failure risk)")
+        if re.search(
+            rf"(`{tool}`\s*tool|\bthe\s+{tool}\s+tool|\bvia\s+(?:the\s+)?{tool}\b)",
+            body,
+        ):
+            warn(
+                f"{rel(md)}: body uses the {tool} tool but frontmatter 'tools' doesn't grant it (silent-failure risk)"
+            )
 
 # --- report ------------------------------------------------------------------
 for w in warns:

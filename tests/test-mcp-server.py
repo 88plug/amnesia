@@ -74,16 +74,19 @@ def main():
 
     try:
         # --- initialize ---
-        send(proc, {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "smoke-test", "version": "0.0.1"},
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "smoke-test", "version": "0.0.1"},
+                },
             },
-        })
+        )
         resp = recv(proc)
 
         if resp is None:
@@ -91,8 +94,10 @@ def main():
             sys.exit(1)
         ok("initialize: got response")
 
-        assert_key(resp, "result",                     "initialize: result key present")
-        assert_key(resp.get("result", {}), "serverInfo", "initialize: serverInfo present")
+        assert_key(resp, "result", "initialize: result key present")
+        assert_key(
+            resp.get("result", {}), "serverInfo", "initialize: serverInfo present"
+        )
         si = resp.get("result", {}).get("serverInfo", {})
         if si.get("name") == "amnesia":
             ok("initialize: serverInfo.name == 'amnesia'")
@@ -100,18 +105,24 @@ def main():
             fail("initialize: serverInfo.name", f"got {si.get('name')!r}")
 
         # --- notifications/initialized ---
-        send(proc, {
-            "jsonrpc": "2.0",
-            "method": "notifications/initialized",
-        })
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+            },
+        )
 
         # --- tools/list ---
-        send(proc, {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/list",
-            "params": {},
-        })
+        send(
+            proc,
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/list",
+                "params": {},
+            },
+        )
         resp2 = recv(proc)
 
         if resp2 is None:
