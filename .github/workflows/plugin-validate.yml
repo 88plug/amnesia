@@ -17,4 +17,4 @@ jobs:
           python-version: "3.13"
       - run: pip install --quiet pyyaml
       - name: Validate plugin manifest & surfaces
-        run: python .ci/validate_plugin.py plugins/amnesia
+        run: python .ci/validate_plugin.py .

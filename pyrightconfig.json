@@ -1,5 +1,14 @@
 {
-  "include": ["plugins/amnesia", "tests", ".ci"],
+  "include": [
+    "mcp",
+    "hooks",
+    "scripts",
+    "tests",
+    ".ci",
+    "agents",
+    "commands",
+    "skills"
+  ],
   "exclude": [
     "**/__pycache__",
     ".venv",

@@ -51,7 +51,7 @@ amnesia makes compaction non-destructive. It captures a structured handoff at ev
 - the path to the on-disk JSONL transcript, which Claude Code never truncates, so any lost detail is recoverable for the cost of one `Read`
 
 > [!NOTE]
-> Recommended install is via the [88plug marketplace](https://github.com/88plug/claude-code-plugins). Installing directly from this repo also works but is less convenient and will not auto-update with curated releases. The plugin package lives under [`plugins/amnesia`](plugins/amnesia).
+> Recommended install is via the [88plug marketplace](https://github.com/88plug/claude-code-plugins). Installing directly from this repo also works but is less convenient and will not auto-update with curated releases. The plugin package is the repository root (standard 88plug layout).
 
 ## Features
 

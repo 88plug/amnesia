@@ -9,10 +9,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMMON_SH="$REPO_ROOT/plugins/amnesia/hooks/lib/common.sh"
-MCP_SERVER="$REPO_ROOT/plugins/amnesia/mcp/server.py"
-HOOKS_DIR="$REPO_ROOT/plugins/amnesia/hooks"
-PLUGIN_DIR="$REPO_ROOT/plugins/amnesia"
+COMMON_SH="$REPO_ROOT/hooks/lib/common.sh"
+MCP_SERVER="$REPO_ROOT/mcp/server.py"
+HOOKS_DIR="$REPO_ROOT/hooks"
+PLUGIN_DIR="$REPO_ROOT"
 
 TEST_DIR="/tmp/amnesia-test-$$"
 PASS=0

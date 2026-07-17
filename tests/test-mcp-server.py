@@ -2,7 +2,7 @@
 """
 Smoke test for the amnesia MCP server.
 
-Launches plugins/amnesia/mcp/server.py as a subprocess, sends a minimal
+Launches mcp/server.py as a subprocess, sends a minimal
 JSON-RPC sequence over stdin, and asserts the response shape.
 
 Does NOT test recall/handoff_get behavior (that needs real state).
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SERVER = REPO_ROOT / "plugins" / "amnesia" / "mcp" / "server.py"
+SERVER = REPO_ROOT / "mcp" / "server.py"
 
 PASS = 0
 FAIL = 0

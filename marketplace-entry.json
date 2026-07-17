@@ -1,9 +1,8 @@
 {
   "name": "amnesia",
   "source": {
-    "source": "git-subdir",
-    "url": "https://github.com/88plug/amnesia.git",
-    "path": "plugins/amnesia"
+    "source": "url",
+    "url": "https://github.com/88plug/amnesia.git"
   },
   "description": "Seamless context continuity across Claude Code compaction. Four background layers (continuous tool-call capture, mechanical PostCompact handoff, async Opus 4.7 enrichment at --effort max, async Stop-hook refinement, and preemptive snapshot before the next compact) keep the agent's working state intact across every compaction and resume. All summarization is isolated from CLAUDE.md/auto-memory and invisible to the user.",
   "category": "productivity",

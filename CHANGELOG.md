@@ -1,8 +1,14 @@
 # Changelog
 
+
+## 2026.7.17
+
+- **Layout:** hoist plugin package from `plugins/amnesia/` to repository root (standard 88plug structure). Marketplace source is now `url` (no longer `git-subdir`).
+- Hub catalog + `marketplace-entry.json` updated accordingly.
+
 All notable changes to amnesia are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Versions correspond to the `version` field in `plugins/amnesia/plugin.json`.
+Versions correspond to the `version` field in `.claude-plugin/plugin.json`.
 
 ---
 
@@ -27,7 +33,7 @@ Versions correspond to the `version` field in `plugins/amnesia/plugin.json`.
   automatically converts to the Apache License 2.0 on the second anniversary of
   its release date. See [`LICENSE.md`](./LICENSE.md) for the full terms.
 - `LICENSE` (MIT) removed in favor of `LICENSE.md` (FSL-1.1-ALv2).
-- `plugins/amnesia/.claude-plugin/plugin.json` license updated to `FSL-1.1-ALv2`.
+- `.claude-plugin/plugin.json` license updated to `FSL-1.1-ALv2`.
 
 ---
 
@@ -100,7 +106,7 @@ observability improved significantly.
 
 ### MCP server
 
-- New stdio JSON-RPC server at `plugins/amnesia/mcp/server.py` (Python 3.6+
+- New stdio JSON-RPC server at `mcp/server.py` (Python 3.6+
   stdlib only; zero pip dependencies) (commit `b12e628`).
 - **`recall`** tool: case-insensitive substring search across the active
   handoff, archived handoffs, and gzipped working-state archives. Returns
@@ -109,7 +115,7 @@ observability improved significantly.
 - **`handoff_get`** tool: returns the full markdown of the current active
   handoff or a specific archived handoff by session ID.
 - Server declared in both `plugin.json` (mcpServers key) and
-  `plugins/amnesia/.mcp.json` for compatibility with both declaration styles.
+  `.mcp.json` for compatibility with both declaration styles.
 
 ### Commands
 
