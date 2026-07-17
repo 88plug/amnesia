@@ -168,4 +168,4 @@ Licensed under the [Functional Source License, Version 1.1, ALv2 Future License]
 
 You may use, copy, modify, and redistribute it for any purpose except a Competing Use — offering this software (or a substantially similar substitute) as a commercial product or service. Each released version automatically converts to the Apache License 2.0 on the second anniversary of its release date.
 
-For commercial-use inquiries outside the Permitted Purpose: claude@cryptoandcoffee.com.
+For commercial-use inquiries outside the Permitted Purpose: andrew@88plug.com.
