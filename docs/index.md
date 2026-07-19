@@ -17,6 +17,14 @@ From the 88plug marketplace (inside Claude Code):
 /plugin install amnesia@88plug
 ```
 
+### Grok Build
+
+```text
+grok plugin marketplace add 88plug/claude-code-plugins
+grok plugin install amnesia@88plug --trust
+```
+
+
 !!! tip
     That is the whole setup. After install, amnesia runs entirely in the background — no commands to run, no files to manage, no visible interruptions.
 
