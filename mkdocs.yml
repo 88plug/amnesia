@@ -1,5 +1,5 @@
 site_name: Amnesia
-site_description: 'Claude Code context continuity across compaction — structured handoffs that keep agent memory and working state intact through every `/compact`, auto-compact, and resume.'
+site_description: 'Context continuity for Claude Code and Grok across compaction — structured handoffs that keep agent memory and working state intact through every `/compact`, auto-compact, and resume.'
 site_url: https://88plug.github.io/amnesia/
 repo_url: https://github.com/88plug/amnesia
 repo_name: 88plug/amnesia
