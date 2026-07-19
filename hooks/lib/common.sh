@@ -18,8 +18,10 @@ set -euo pipefail
 # the most-recently-touched one. This makes the slash commands and the hooks
 # converge on the same directory regardless of which context they run in.
 amnesia::_data_roots() {
-  if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
-    printf '%s\n' "$CLAUDE_PLUGIN_DATA"
+  # Grok sets GROK_PLUGIN_DATA (+ CLAUDE_PLUGIN_DATA alias); prefer either.
+  local data="${GROK_PLUGIN_DATA:-${CLAUDE_PLUGIN_DATA:-}}"
+  if [ -n "$data" ]; then
+    printf '%s\n' "$data"
     return 0
   fi
   # Marketplace-suffixed roots first (newest mtime wins), then the legacy
