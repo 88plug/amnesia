@@ -2,7 +2,7 @@
 
 # amnesia
 
-Claude Code context continuity across compaction — structured handoffs that keep agent memory and working state intact through every `/compact`, auto-compact, and resume.
+Context continuity for Claude Code and Grok across compaction — structured handoffs that keep agent memory and working state intact through every `/compact`, auto-compact, and resume.
 
 [![plugin-validate](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml/badge.svg)](https://github.com/88plug/amnesia/actions/workflows/plugin-validate.yml)
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue?style=flat)](LICENSE)
