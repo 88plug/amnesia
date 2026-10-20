@@ -14,6 +14,10 @@ Versions correspond to the `version` field in `.claude-plugin/plugin.json`.
 
 ## [Unreleased]
 
+### Fixed — summarizer timeout dropped the fresh handoff
+
+`timeout` around the summarizer killed the run and left the previous handoff in place. That limit is gone. The PostCompact, Stop, and preemptive hooks allow 3600s so the harness does not kill the write.
+
 ### Fixed — hooks.json unknown key notice
 
 `_comment_asyncRewake` is not a hooks.json field, so a plugin reload reported it and ignored it. The asyncRewake decision already lives in DESIGN.md. No other unknown keys were in the manifest.

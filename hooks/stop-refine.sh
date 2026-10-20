@@ -138,7 +138,7 @@ PROMPT_EOF
 TMP_OUT="$(mktemp)"
 trap 'rm -f "$TMP_OUT"' EXIT
 
-if ! printf '%s' "$PROMPT" | amnesia::summarize 270 "L3-refine" > "$TMP_OUT"; then
+if ! printf '%s' "$PROMPT" | amnesia::summarize "L3-refine" > "$TMP_OUT"; then
   amnesia::log warn "L3 summarizer failed; existing handoff (L1 or L2) remains in place"
   amnesia::unlock active
   exit 0
