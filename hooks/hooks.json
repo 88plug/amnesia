@@ -1,6 +1,5 @@
 {
   "description": "amnesia: capture working state continuously, snapshot at compact boundaries, re-inject on session resume. All summarization is async + isolated so the user never sees amnesia at work.",
-  "_comment_asyncRewake": "asyncRewake IS supported in 2.1.150. Evidence: (1) strings on the binary returned 'flushPendingAsyncRewakeHooks', 'ASYNC_REWAKE_FLUSH_TIMEOUT_MS', and 'asyncRewake' as a property key. (2) The official docs at code.claude.com/docs/en/hooks document asyncRewake: true as a valid command-hook field that implies async and wakes Claude on exit code 2, surfacing the hook's stderr as a system reminder. DECISION: post-compact-enrich.sh and stop-refine.sh are changed from async:true to asyncRewake:true. Both hooks already write a delta to stderr on success (per Agent A's design). asyncRewake lets Claude receive those deltas as a system reminder without an extra round-trip.",
   "hooks": {
     "PreCompact": [
       {

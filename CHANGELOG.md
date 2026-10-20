@@ -14,6 +14,10 @@ Versions correspond to the `version` field in `.claude-plugin/plugin.json`.
 
 ## [Unreleased]
 
+### Fixed — hooks.json unknown key notice
+
+`_comment_asyncRewake` is not a hooks.json field, so a plugin reload reported it and ignored it. The asyncRewake decision already lives in DESIGN.md. No other unknown keys were in the manifest.
+
 ### Fixed — post-compact handoff died at 180s
 
 `effort=max` summarization has taken about 150s. The 180s kill aborted Layer 2 and left the previous handoff in place. The summarizer now gets 270s, and the PostCompact, Stop, and preemptive hooks allow 360s so the fresh handoff can be written.
