@@ -138,7 +138,7 @@ PROMPT_EOF
 TMP_OUT="$(mktemp)"
 trap 'rm -f "$TMP_OUT"' EXIT
 
-if ! printf '%s' "$PROMPT" | amnesia::summarize 180 "preempt" > "$TMP_OUT"; then
+if ! printf '%s' "$PROMPT" | amnesia::summarize 270 "preempt" > "$TMP_OUT"; then
   amnesia::log warn "preempt summarizer failed; previous handoff remains"
   amnesia::unlock active
   exit 0

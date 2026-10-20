@@ -36,7 +36,7 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/post-compact-enrich.sh\"",
-            "timeout": 300,
+            "timeout": 360,
             "asyncRewake": true
           }
         ]
@@ -48,7 +48,7 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-refine.sh\"",
-            "timeout": 300,
+            "timeout": 360,
             "asyncRewake": true
           }
         ]
@@ -60,7 +60,7 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-preempt.sh\"",
-            "timeout": 300,
+            "timeout": 360,
             "async": true
           }
         ]

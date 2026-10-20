@@ -15,7 +15,7 @@
 # Cost on subscription plans (verified empirically 2026-05-24):
 #   ~33K cache-creation + ~21K cache-read + ~3K output Opus 4.7 tokens per call
 #   ~$0.20 informational ($0 actually billed; draws from plan quota)
-#   ~30-60s wall-clock with --effort max
+#   up to ~270s wall-clock with --effort max
 # Override the model effort via AMNESIA_EFFORT env var (default: max).
 
 # Source this file from a hook script. Defines `amnesia::summarize`,
@@ -63,10 +63,12 @@ _amnesia_budget_record() {
 # decide whether to fall back to L1 or ignore).
 #
 # Arguments:
-#   $1 - hard timeout in seconds (default 180)
+#   $1 - hard timeout in seconds (default 270)
+#       effort=max has taken ~150s and was killed at 180, which left the
+#       previous handoff in place. 270 stays inside the 360s hook budget.
 #   $2 - free-text label written to amnesia.log (default "summarize")
 amnesia::summarize() {
-  local hard_timeout="${1:-180}"
+  local hard_timeout="${1:-270}"
   local label="${2:-summarize}"
   local effort="${AMNESIA_EFFORT:-max}"
   local state_dir; state_dir="$(amnesia::ensure_state)"

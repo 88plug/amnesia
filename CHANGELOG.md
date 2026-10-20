@@ -14,6 +14,10 @@ Versions correspond to the `version` field in `.claude-plugin/plugin.json`.
 
 ## [Unreleased]
 
+### Fixed — post-compact handoff died at 180s
+
+`effort=max` summarization has taken about 150s. The 180s kill aborted Layer 2 and left the previous handoff in place. The summarizer now gets 270s, and the PostCompact, Stop, and preemptive hooks allow 360s so the fresh handoff can be written.
+
 ### Fixed — Python launch under thin PATH
 
 - MCP no longer uses bare `"command": "python3"` (fails when Claude's spawn
