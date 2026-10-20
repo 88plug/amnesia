@@ -83,9 +83,9 @@ amnesia runs as background hooks. Each event is invisible to you.
 | Continuous capture | Every matched tool call | <50 ms sync | Appends a one-line record to `working-state.jsonl` |
 | PreCompact sidecar | Before compaction | <100 ms sync | Tails the transcript into a sidecar for L1 |
 | L1 mechanical | After every compaction | <500 ms sync | Deterministic handoff from JSONL + working-state + git state |
-| L2 enrich | After every compaction | up to 270 s asyncRewake | Opus 4.7 `--effort max` rewrites the handoff with narrative |
-| L3 refine | First Stop after compaction | up to 270 s asyncRewake | Opus refines the handoff using post-compact work |
-| Preemptive | At ~75% of context (~2 MB since last boundary) | up to 270 s async | Snapshots state before the next compact, while it is still in the window |
+| L2 enrich | After every compaction | asyncRewake, no kill timeout | Opus 4.7 `--effort max` rewrites the handoff with narrative |
+| L3 refine | First Stop after compaction | asyncRewake, no kill timeout | Opus refines the handoff using post-compact work |
+| Preemptive | At ~75% of context (~2 MB since last boundary) | async, no kill timeout | Snapshots state before the next compact, while it is still in the window |
 | Restore | SessionStart (`compact` / `resume` / `startup`) | <100 ms sync | Injects the handoff into `additionalContext` |
 | Subagent inject | Every subagent spawn | sync | Injects a trimmed handoff (default ≤3 KB) |
 | Session end | Session teardown | sync | Final archive snapshot + optional opt-in git push |

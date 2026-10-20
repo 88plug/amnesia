@@ -4,7 +4,7 @@
 # trying to do, what decisions did it make, what's the next concrete step").
 #
 # Fires from hooks.json with asyncRewake, so the parent harness has already
-# returned to the user. effort=max needs up to 270s. The hook budget is 360s.
+# returned to the user. The summarizer is not killed by a time limit.
 #
 # Uses an isolated `claude -p` call (see lib/summarize.sh) at the user's
 # default model (Opus 4.7 on subscription) at --effort max. Falls back
@@ -100,7 +100,7 @@ TMP_OUT="$(mktemp)"
 # Note: the EXIT trap already removes L2_MARKER; also clean up TMP_OUT.
 trap 'rm -f "$TMP_OUT" "$L2_MARKER"' EXIT
 
-if ! printf '%s' "$PROMPT" | amnesia::summarize 270 "L2-enrich" > "$TMP_OUT"; then
+if ! printf '%s' "$PROMPT" | amnesia::summarize "L2-enrich" > "$TMP_OUT"; then
   amnesia::log warn "L2 summarizer failed; L1 handoff remains in place"
   amnesia::unlock active
   exit 0
